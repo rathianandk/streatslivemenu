@@ -1351,6 +1351,7 @@ const App = () => {
   const [currentVendor, setCurrentVendor] = useState<Vendor | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [cartQuantities, setCartQuantities] = useState<{[dishId: number]: number}>({});
+  const [isVendorMode, setIsVendorMode] = useState(true);
   
   const locationServiceRef = useRef(new LocationService());
   
@@ -1829,23 +1830,54 @@ const App = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setShowAddVendorModal(true)}
-                className="bg-green-600 text-white px-4 md:px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm md:text-base"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Add Vendor</span>
-                <span className="sm:hidden">Add</span>
-              </button>
+              {/* User/Vendor Mode Toggle */}
+              <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200">
+                <button
+                  onClick={() => setIsVendorMode(false)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                    !isVendorMode
+                      ? 'bg-white text-blue-600 shadow-sm border border-blue-200'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  <span className="hidden sm:inline">Customer</span>
+                </button>
+                <button
+                  onClick={() => setIsVendorMode(true)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                    isVendorMode
+                      ? 'bg-white text-orange-600 shadow-sm border border-orange-200'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <Globe className="w-4 h-4" />
+                  <span className="hidden sm:inline">Vendor</span>
+                </button>
+              </div>
               
-              <button 
-                onClick={() => setCurrentView('vendor-login')}
-                className="bg-orange-600 text-white px-4 md:px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2 text-sm md:text-base shadow-md"
-              >
-                <User className="w-4 h-4" />
-                <span className="hidden sm:inline">Vendor Login</span>
-                <span className="sm:hidden">Login</span>
-              </button>
+              {/* Vendor-only buttons */}
+              {isVendorMode && (
+                <>
+                  <button 
+                    onClick={() => setShowAddVendorModal(true)}
+                    className="bg-green-600 text-white px-4 md:px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm md:text-base"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Add Vendor</span>
+                    <span className="sm:hidden">Add</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setCurrentView('vendor-login')}
+                    className="bg-orange-600 text-white px-4 md:px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2 text-sm md:text-base shadow-md"
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span className="hidden sm:inline">Vendor Hub</span>
+                    <span className="sm:hidden">Hub</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2392,17 +2424,6 @@ const App = () => {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setCurrentVendor(vendor);
-                                setShowReviewModal(true);
-                              }}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Write Review"
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                            </button>
                             <button className="text-orange-600 font-semibold hover:text-orange-700 transition-colors text-sm md:text-base">
                               {isArrived ? 'Order Now →' : 'View Live →'}
                             </button>

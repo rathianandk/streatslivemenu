@@ -27,6 +27,7 @@ interface Vendor {
   isStationary: boolean;
   locationMarkedAt?: number;
   hasFixedAddress: boolean;
+  openUntil?: string;
 }
 
 interface GoogleMapProps {
