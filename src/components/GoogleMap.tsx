@@ -22,6 +22,11 @@ interface Vendor {
   reviews: any[];
   status?: string;
   estimatedTime?: number;
+  // Hybrid Location Model properties
+  vendorType: 'truck' | 'pushcart' | 'stall';
+  isStationary: boolean;
+  locationMarkedAt?: number;
+  hasFixedAddress: boolean;
 }
 
 interface GoogleMapProps {
@@ -48,7 +53,42 @@ const MapComponent: React.FC<GoogleMapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const markerAnimationsRef = useRef<Map<number, any>>(new Map());
+  const previousPositionsRef = useRef<Map<number, { lat: number; lng: number }>>(new Map());
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+
+  // Smooth marker animation function
+  const animateMarker = (marker: google.maps.Marker, newPosition: { lat: number; lng: number }, duration: number = 2000) => {
+    const startPosition = marker.getPosition();
+    if (!startPosition) return;
+
+    const startLat = startPosition.lat();
+    const startLng = startPosition.lng();
+    const deltaLat = newPosition.lat - startLat;
+    const deltaLng = newPosition.lng - startLng;
+    
+    const startTime = Date.now();
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function for smooth animation
+      const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+      const easedProgress = easeInOutCubic(progress);
+      
+      const currentLat = startLat + (deltaLat * easedProgress);
+      const currentLng = startLng + (deltaLng * easedProgress);
+      
+      marker.setPosition({ lat: currentLat, lng: currentLng });
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  };
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -98,50 +138,169 @@ const MapComponent: React.FC<GoogleMapProps> = ({
     }
   }, [userLocation, zoom]);
 
-  // Update markers when vendors change
+  // Update markers when vendors change with smooth animations
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.setMap(null));
+    // Create a map of existing markers by vendor ID
+    const existingMarkers = new Map<number, google.maps.Marker>();
+    markersRef.current.forEach((marker, index) => {
+      const vendorId = parseInt(marker.get('vendorId') || '0');
+      if (vendorId) {
+        existingMarkers.set(vendorId, marker);
+      }
+    });
+
+    // Clear markers array but keep references for animation
     markersRef.current = [];
 
-    // Add vendor markers with enhanced design
+    // Add/update vendor markers with enhanced design and animations
     vendors.forEach(vendor => {
       const isSelected = selectedVendor?.id === vendor.id;
       const isOnline = Date.now() - vendor.lastSeen < 30000;
       const isArrived = isOnline && vendor.speed <= 2;
       
-      // Create custom marker with truck emoji and status
-      const marker = new google.maps.Marker({
-        position: { lat: vendor.location.lat, lng: vendor.location.lng },
-        map: mapInstanceRef.current,
-        title: `${vendor.name} - ${vendor.cuisine}`,
-        icon: {
+      // Hybrid Location Model: Determine vendor type and behavior
+      const isStationary = vendor.isStationary || vendor.vendorType === 'pushcart' || vendor.vendorType === 'stall';
+      const isTruck = vendor.vendorType === 'truck';
+      const isPushCart = vendor.vendorType === 'pushcart';
+      const isStall = vendor.vendorType === 'stall';
+      
+      // Check if marker already exists for this vendor
+      const existingMarker = existingMarkers.get(vendor.id);
+      const previousPosition = previousPositionsRef.current.get(vendor.id);
+      const currentPosition = { lat: vendor.location.lat, lng: vendor.location.lng };
+      
+      let marker: google.maps.Marker;
+      
+      if (existingMarker && previousPosition) {
+        // Update existing marker with smooth animation
+        marker = existingMarker;
+        
+        // Only animate trucks (not stationary push carts)
+        if (!isStationary) {
+          // Only animate if position has changed significantly (> 0.0001 degrees ~= 10 meters)
+          const latDiff = Math.abs(currentPosition.lat - previousPosition.lat);
+          const lngDiff = Math.abs(currentPosition.lng - previousPosition.lng);
+          const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+          
+          if (distance > 0.0001) {
+            // Animate to new position
+            animateMarker(marker, currentPosition, 2000);
+          }
+        }
+        
+        // Update marker icon for status changes with vendor type distinction
+        const vendorEmoji = isPushCart ? '🛒' : isStall ? '🏪' : '🚚';
+        const markerShape = isStationary ? 'rect' : 'circle';
+        const markerColor = isSelected ? '#3B82F6' : isStationary ? '#8B5CF6' : isArrived ? '#10B981' : '#F97316';
+        const borderStyle = isStationary ? 'stroke-dasharray="5,5"' : '';
+        
+        marker.setIcon({
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
             <svg width="60" height="80" viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
-              <!-- Main marker circle -->
-              <circle cx="30" cy="30" r="25" fill="${isSelected ? '#3B82F6' : isArrived ? '#10B981' : '#F97316'}" stroke="white" stroke-width="3"/>
+              <!-- Main marker shape - circle for trucks, square for stationary -->
+              ${markerShape === 'circle' ? 
+                `<circle cx="30" cy="30" r="25" fill="${markerColor}" stroke="white" stroke-width="3" ${borderStyle}/>` :
+                `<rect x="5" y="5" width="50" height="50" rx="8" fill="${markerColor}" stroke="white" stroke-width="3" ${borderStyle}/>`
+              }
               
-              <!-- Truck emoji -->
-              <text x="30" y="38" text-anchor="middle" font-size="20" fill="white">🚚</text>
+              <!-- Vendor emoji with rotation for trucks only -->
+              ${isTruck ? 
+                `<g transform="rotate(${vendor.location.heading || 0} 30 30)">
+                  <text x="30" y="38" text-anchor="middle" font-size="20" fill="white">${vendorEmoji}</text>
+                </g>` :
+                `<text x="30" y="38" text-anchor="middle" font-size="20" fill="white">${vendorEmoji}</text>`
+              }
               
               <!-- Status indicator -->
               <circle cx="45" cy="15" r="8" fill="${isArrived ? '#10B981' : isOnline ? '#F59E0B' : '#EF4444'}" stroke="white" stroke-width="2"/>
-              <text x="45" y="19" text-anchor="middle" font-size="10" fill="white">${isArrived ? '✓' : isOnline ? '→' : '×'}</text>
+              <text x="45" y="19" text-anchor="middle" font-size="10" fill="white">${isArrived ? '✓' : isOnline ? '📍' : '×'}</text>
               
               <!-- Vendor name label -->
               <rect x="5" y="55" width="50" height="20" rx="10" fill="rgba(0,0,0,0.8)" stroke="white" stroke-width="1"/>
               <text x="30" y="67" text-anchor="middle" font-size="10" fill="white" font-weight="bold">${vendor.name.substring(0, 8)}</text>
               
               <!-- Pointer -->
-              <polygon points="25,50 35,50 30,60" fill="${isSelected ? '#3B82F6' : isArrived ? '#10B981' : '#F97316'}"/>
+              <polygon points="25,50 35,50 30,60" fill="${markerColor}"/>
+              
+              <!-- Movement indicator for trucks only -->
+              ${!isStationary && vendor.speed > 5 ? `
+                <circle cx="15" cy="15" r="6" fill="#3B82F6" stroke="white" stroke-width="1" opacity="0.8">
+                  <animate attributeName="r" values="6;10;6" dur="1s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1s" repeatCount="indefinite"/>
+                </circle>
+              ` : ''}
+              
+              <!-- Static indicator for push carts -->
+              ${isStationary ? `
+                <circle cx="15" cy="45" r="4" fill="#8B5CF6" opacity="0.8"/>
+                <text x="15" y="48" text-anchor="middle" font-size="8" fill="white">📍</text>
+              ` : ''}
             </svg>
           `)}`,
           scaledSize: new google.maps.Size(60, 80),
           anchor: new google.maps.Point(30, 60)
-        }
-      });
+        });
+      } else {
+        // Create new marker with vendor type distinction
+        const vendorEmoji = isPushCart ? '🛒' : isStall ? '🏪' : '🚚';
+        const markerShape = isStationary ? 'rect' : 'circle';
+        const markerColor = isSelected ? '#3B82F6' : isStationary ? '#8B5CF6' : isArrived ? '#10B981' : '#F97316';
+        const borderStyle = isStationary ? 'stroke-dasharray="5,5"' : '';
+        
+        marker = new google.maps.Marker({
+          position: { lat: vendor.location.lat, lng: vendor.location.lng },
+          map: mapInstanceRef.current,
+          title: `${vendor.name} - ${vendor.cuisine} (${vendor.vendorType})`,
+          icon: {
+            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+              <svg width="60" height="80" viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
+                <!-- Main marker shape - circle for trucks, square for stationary -->
+                ${markerShape === 'circle' ? 
+                  `<circle cx="30" cy="30" r="25" fill="${markerColor}" stroke="white" stroke-width="3" ${borderStyle}/>` :
+                  `<rect x="5" y="5" width="50" height="50" rx="8" fill="${markerColor}" stroke="white" stroke-width="3" ${borderStyle}/>`
+                }
+                
+                <!-- Vendor emoji with rotation for trucks only -->
+                ${isTruck ? 
+                  `<g transform="rotate(${vendor.location.heading || 0} 30 30)">
+                    <text x="30" y="38" text-anchor="middle" font-size="20" fill="white">${vendorEmoji}</text>
+                  </g>` :
+                  `<text x="30" y="38" text-anchor="middle" font-size="20" fill="white">${vendorEmoji}</text>`
+                }
+                
+                <!-- Status indicator -->
+                <circle cx="45" cy="15" r="8" fill="${isArrived ? '#10B981' : isOnline ? '#F59E0B' : '#EF4444'}" stroke="white" stroke-width="2"/>
+                <text x="45" y="19" text-anchor="middle" font-size="10" fill="white">${isArrived ? '✓' : isOnline ? '📍' : '×'}</text>
+                
+                <!-- Vendor name label -->
+                <rect x="5" y="55" width="50" height="20" rx="10" fill="rgba(0,0,0,0.8)" stroke="white" stroke-width="1"/>
+                <text x="30" y="67" text-anchor="middle" font-size="10" fill="white" font-weight="bold">${vendor.name.substring(0, 8)}</text>
+                
+                <!-- Pointer -->
+                <polygon points="25,50 35,50 30,60" fill="${markerColor}"/>
+                
+                <!-- Movement indicator for trucks only -->
+                ${!isStationary && vendor.speed > 5 ? `
+                  <circle cx="15" cy="15" r="6" fill="#3B82F6" stroke="white" stroke-width="1" opacity="0.8">
+                    <animate attributeName="r" values="6;10;6" dur="1s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1s" repeatCount="indefinite"/>
+                  </circle>
+                ` : ''}
+                
+                <!-- Static indicator for push carts -->
+                ${isStationary ? `
+                  <circle cx="15" cy="45" r="4" fill="#8B5CF6" opacity="0.8"/>
+                  <text x="15" y="48" text-anchor="middle" font-size="8" fill="white">📍</text>
+                ` : ''}
+              </svg>
+            `)}`,
+            scaledSize: new google.maps.Size(60, 80),
+            anchor: new google.maps.Point(30, 60)
+          }
+        });
+      }
 
       // Add click listener
       marker.addListener('click', () => {
@@ -193,7 +352,23 @@ const MapComponent: React.FC<GoogleMapProps> = ({
         }
       });
 
+      // Store vendor ID in marker for tracking
+      marker.set('vendorId', vendor.id.toString());
+      
+      // Update position tracking
+      previousPositionsRef.current.set(vendor.id, currentPosition);
+      
       markersRef.current.push(marker);
+    });
+    
+    // Clean up markers for vendors that no longer exist
+    existingMarkers.forEach((marker, vendorId) => {
+      const vendorExists = vendors.some(v => v.id === vendorId);
+      if (!vendorExists) {
+        marker.setMap(null);
+        previousPositionsRef.current.delete(vendorId);
+        markerAnimationsRef.current.delete(vendorId);
+      }
     });
   }, [vendors, selectedVendor, onVendorSelect]);
 

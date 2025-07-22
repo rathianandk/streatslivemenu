@@ -43,6 +43,11 @@ interface Vendor {
   reviews: Review[];
   status?: string;
   estimatedTime?: number;
+  // Hybrid Location Model properties
+  vendorType: 'truck' | 'pushcart' | 'stall'; // Different vendor types
+  isStationary: boolean; // True for push carts, false for trucks
+  locationMarkedAt?: number; // Timestamp when vendor marked their spot
+  hasFixedAddress: boolean; // False for address-less push carts
 }
 
 interface User {
@@ -129,6 +134,141 @@ class LocationService {
   }
 }
 
+// Mark My Spot Component for Push Cart Vendors
+interface MarkMySpotProps {
+  onClose: () => void;
+  onMarkLocation: (lat: number, lng: number) => void;
+  vendorName: string;
+}
+
+const MarkMySpotModal = ({ onClose, onMarkLocation, vendorName }: MarkMySpotProps) => {
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
+
+  const getCurrentLocation = () => {
+    setIsGettingLocation(true);
+    setLocationError('');
+    
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by this browser.');
+      setIsGettingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setCurrentLocation({ lat: latitude, lng: longitude });
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        setLocationError('Unable to get your location. Please try again.');
+        setIsGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  const handleMarkSpot = () => {
+    if (currentLocation) {
+      onMarkLocation(currentLocation.lat, currentLocation.lng);
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 rounded-t-2xl">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold">📍 Mark My Spot</h2>
+              <p className="opacity-90 text-sm">{vendorName}</p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="text-center">
+            <div className="text-6xl mb-4">🛒</div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Set Your Push Cart Location
+            </h3>
+            <p className="text-gray-600 text-sm">
+              Tap "Get My Location" to mark where your push cart is currently stationed.
+              This will help customers find you easily!
+            </p>
+          </div>
+
+          {locationError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-600 text-sm">{locationError}</p>
+            </div>
+          )}
+
+          {currentLocation && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-green-700">
+                <MapPin className="w-5 h-5" />
+                <div>
+                  <p className="font-semibold">Location Found!</p>
+                  <p className="text-sm">
+                    Lat: {currentLocation.lat.toFixed(6)}, Lng: {currentLocation.lng.toFixed(6)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <button
+              onClick={getCurrentLocation}
+              disabled={isGettingLocation}
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isGettingLocation ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Getting Location...
+                </>
+              ) : (
+                <>
+                  <Target className="w-5 h-5" />
+                  Get My Location
+                </>
+              )}
+            </button>
+
+            {currentLocation && (
+              <button
+                onClick={handleMarkSpot}
+                className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <MapPin className="w-5 h-5" />
+                Mark This Spot
+              </button>
+            )}
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <div className="text-yellow-600 mt-0.5">💡</div>
+              <div className="text-yellow-700 text-sm">
+                <p className="font-semibold mb-1">Tip for Push Cart Vendors:</p>
+                <p>Make sure you're at your selling location before marking your spot. This location will be shown to customers until you update it again.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Add New Vendor Modal Component
 interface AddVendorModalProps {
   onClose: () => void;
@@ -167,7 +307,12 @@ const AddVendorModal = ({ onClose, onAddVendor }: AddVendorModalProps) => {
       heading: Math.random() * 360,
       accuracy: Math.random() * 10 + 5,
       dishes: [],
-      reviews: []
+      reviews: [],
+      // Hybrid Location Model properties
+      vendorType: 'truck' as const, // Default to truck for new vendors
+      isStationary: false, // Trucks are mobile by default
+      hasFixedAddress: true, // New vendors have addresses by default
+      locationMarkedAt: undefined // Only set when vendor marks their spot
     };
     
     onAddVendor(vendor);
@@ -796,7 +941,12 @@ const App = () => {
           status: apiVendor.status || 'active',
           estimatedTime: apiVendor.estimatedTime || 0,
           dishes: apiVendor.dishes,
-          reviews: apiVendor.reviews
+          reviews: apiVendor.reviews,
+          // Hybrid Location Model properties
+          vendorType: 'truck' as const, // Default API vendors to trucks
+          isStationary: false, // Trucks are mobile by default
+          hasFixedAddress: true, // API vendors have addresses
+          locationMarkedAt: undefined // Only set when vendor marks their spot
         }));
         setVendors(convertedVendors);
       } catch (error) {
@@ -820,7 +970,12 @@ const App = () => {
             status: apiVendor.status || 'active',
             estimatedTime: apiVendor.estimatedTime || 0,
             dishes: apiVendor.dishes,
-            reviews: apiVendor.reviews
+            reviews: apiVendor.reviews,
+            // Hybrid Location Model properties
+            vendorType: 'truck' as const, // Default seeded vendors to trucks
+            isStationary: false, // Trucks are mobile by default
+            hasFixedAddress: true, // Seeded vendors have addresses
+            locationMarkedAt: undefined // Only set when vendor marks their spot
           }));
           setVendors(convertedVendors);
         } catch (seedError) {
@@ -1033,7 +1188,12 @@ const App = () => {
         status: 'active',
         estimatedTime: 0,
         dishes: [],
-        reviews: []
+        reviews: [],
+        // Hybrid Location Model properties
+        vendorType: 'truck', // Default to truck for API vendors
+        isStationary: false, // Trucks are mobile by default
+        hasFixedAddress: true, // API vendors have addresses by default
+        locationMarkedAt: undefined // Only set when vendor marks their spot
       };
       
       setVendors([...vendors, convertedVendor]);
