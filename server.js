@@ -64,6 +64,12 @@ db.serialize(() => {
       console.error('Migration error for locationMarkedAt:', err.message);
     }
   });
+  
+  db.run(`ALTER TABLE vendors ADD COLUMN openUntil TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Migration error for openUntil:', err.message);
+    }
+  });
 
   // Dishes table
   db.run(`CREATE TABLE IF NOT EXISTS dishes (
@@ -192,11 +198,11 @@ app.post('/api/vendors', (req, res) => {
 // Update vendor
 app.put('/api/vendors/:id', (req, res) => {
   const { id } = req.params;
-  const { name, description, cuisine, emoji, rating, location, vendorType, isStationary, hasFixedAddress, locationMarkedAt } = req.body;
+  const { name, description, cuisine, emoji, rating, location, vendorType, isStationary, hasFixedAddress, locationMarkedAt, openUntil } = req.body;
   
   const query = `UPDATE vendors SET name = ?, description = ?, cuisine = ?, emoji = ?, rating = ?, 
                  lat = ?, lng = ?, address = ?, vendorType = ?, isStationary = ?, hasFixedAddress = ?, 
-                 locationMarkedAt = ?, lastSeen = ? WHERE id = ?`;
+                 locationMarkedAt = ?, openUntil = ?, lastSeen = ? WHERE id = ?`;
   
   db.run(query, [
     name, description, cuisine, emoji, rating,
@@ -205,6 +211,7 @@ app.put('/api/vendors/:id', (req, res) => {
     isStationary ? 1 : 0, 
     hasFixedAddress ? 1 : 0,
     locationMarkedAt || null,
+    openUntil || null,
     Date.now(),
     id
   ], function(err) {

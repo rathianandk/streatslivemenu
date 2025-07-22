@@ -137,7 +137,7 @@ class LocationService {
 // Mark My Spot Component for Push Cart Vendors
 interface MarkMySpotProps {
   onClose: () => void;
-  onMarkLocation: (lat: number, lng: number) => void;
+  onMarkLocation: (lat: number, lng: number, openUntil: string) => void;
   vendorName: string;
 }
 
@@ -145,6 +145,12 @@ const MarkMySpotModal = ({ onClose, onMarkLocation, vendorName }: MarkMySpotProp
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [openUntil, setOpenUntil] = useState('');
+  const [showTimeInput, setShowTimeInput] = useState(false);
+  const [hours, setHours] = useState('');
+  const [minutes, setMinutes] = useState('');
+  const [ampm, setAmpm] = useState('PM');
+  const [timeError, setTimeError] = useState('');
 
   const getCurrentLocation = () => {
     setIsGettingLocation(true);
@@ -170,9 +176,63 @@ const MarkMySpotModal = ({ onClose, onMarkLocation, vendorName }: MarkMySpotProp
     );
   };
 
+  // Validate numeric time inputs
+  const validateTimeInputs = () => {
+    setTimeError('');
+    
+    const hourNum = parseInt(hours);
+    const minuteNum = parseInt(minutes || '0');
+    
+    // Validate hour range (1-12)
+    if (!hours || hourNum < 1 || hourNum > 12) {
+      setTimeError('Please enter a valid hour (1-12)');
+      return null;
+    }
+    
+    // Validate minute range (0-59)
+    if (minutes && (minuteNum < 0 || minuteNum > 59)) {
+      setTimeError('Please enter valid minutes (0-59)');
+      return null;
+    }
+    
+    // Convert to 24-hour format
+    let hour24 = hourNum;
+    if (ampm === 'PM' && hourNum !== 12) hour24 += 12;
+    if (ampm === 'AM' && hourNum === 12) hour24 = 0;
+    
+    // Create future date with the specified time
+    const now = new Date();
+    const targetTime = new Date();
+    targetTime.setHours(hour24, minuteNum, 0, 0);
+    
+    // If the time is earlier than current time, assume it's for tomorrow
+    if (targetTime <= now) {
+      targetTime.setDate(targetTime.getDate() + 1);
+    }
+    
+    // Check if it's too far in the future (more than 24 hours)
+    const maxTime = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+    if (targetTime > maxTime) {
+      setTimeError('Please select a time within the next 24 hours.');
+      return null;
+    }
+    
+    return targetTime;
+  };
+  
+  const handleTimeSubmit = () => {
+    const validatedTime = validateTimeInputs();
+    if (validatedTime) {
+      setOpenUntil(validatedTime.toISOString());
+      setShowTimeInput(false);
+      setHours('');
+      setMinutes('');
+    }
+  };
+
   const handleMarkSpot = () => {
-    if (currentLocation) {
-      onMarkLocation(currentLocation.lat, currentLocation.lng);
+    if (currentLocation && openUntil) {
+      onMarkLocation(currentLocation.lat, currentLocation.lng, openUntil);
       onClose();
     }
   };
@@ -224,6 +284,120 @@ const MarkMySpotModal = ({ onClose, onMarkLocation, vendorName }: MarkMySpotProp
             </div>
           )}
 
+          {/* Cool Operating Hours Selector */}
+          {currentLocation && (
+            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl p-5">
+              <div className="text-center mb-4">
+                <div className="text-3xl mb-2">⏰</div>
+                <h4 className="font-bold text-gray-900 mb-1">When will you close?</h4>
+                <p className="text-sm text-gray-600">Let customers know your operating hours</p>
+              </div>
+              
+              {!showTimeInput ? (
+                <button
+                  onClick={() => setShowTimeInput(true)}
+                  className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 text-white py-3 px-4 rounded-lg hover:from-orange-600 hover:to-yellow-600 transition-all duration-300 flex items-center justify-center gap-2 font-semibold shadow-lg"
+                >
+                  <Clock className="w-5 h-5" />
+                  {openUntil ? `Open until ${new Date(openUntil).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit', hour12: true})}` : 'Set Operating Hours'}
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg border-2 border-orange-200 p-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      🕰️ Set your closing time:
+                    </label>
+                    
+                    {/* Time inputs styled like Add Dish modal price field */}
+                    <div className="flex items-center gap-2 justify-center">
+                      <input
+                        type="number"
+                        min="1"
+                        max="12"
+                        placeholder="12"
+                        value={hours}
+                        onChange={(e) => setHours(e.target.value)}
+                        className="w-16 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-center font-medium"
+                        autoFocus
+                      />
+                      <span className="text-lg font-bold text-gray-400">:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        placeholder="00"
+                        value={minutes}
+                        onChange={(e) => setMinutes(e.target.value)}
+                        className="w-16 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-center font-medium"
+                      />
+                      
+                      {/* AM/PM Toggle styled like Add Dish category selector */}
+                      <div className="flex bg-gray-100 rounded-lg p-1 ml-2">
+                        <button
+                          type="button"
+                          onClick={() => setAmpm('AM')}
+                          className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
+                            ampm === 'AM'
+                              ? 'bg-white text-orange-600 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-800'
+                          }`}
+                        >
+                          AM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAmpm('PM')}
+                          className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
+                            ampm === 'PM'
+                              ? 'bg-white text-orange-600 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-800'
+                          }`}
+                        >
+                          PM
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-2 text-xs text-gray-500 text-center">
+                      📝 Example: 4:30 PM, 11:15 AM, 2:00 PM
+                    </div>
+                    
+                    {timeError && (
+                      <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
+                        ⚠️ {timeError}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleTimeSubmit}
+                      disabled={!hours}
+                      className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 ${
+                        hours
+                          ? 'bg-green-500 text-white hover:bg-green-600 shadow-lg'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      ✓ Confirm Time
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowTimeInput(false);
+                        setHours('');
+                        setMinutes('');
+                        setTimeError('');
+                      }}
+                      className="px-4 py-3 text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-3">
             <button
               onClick={getCurrentLocation}
@@ -246,10 +420,24 @@ const MarkMySpotModal = ({ onClose, onMarkLocation, vendorName }: MarkMySpotProp
             {currentLocation && (
               <button
                 onClick={handleMarkSpot}
-                className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                disabled={!openUntil}
+                className={`w-full py-4 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 font-bold text-lg shadow-lg ${
+                  openUntil 
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 hover:shadow-xl transform hover:scale-105' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
-                <MapPin className="w-5 h-5" />
-                Mark This Spot
+                {openUntil ? (
+                  <>
+                    <div className="text-2xl">🎉</div>
+                    <span>Go Live Now!</span>
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="w-5 h-5" />
+                    <span>Set Operating Hours First</span>
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -758,7 +946,7 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
   const [showMarkMySpot, setShowMarkMySpot] = useState(false);
   const [showLiveNotification, setShowLiveNotification] = useState(false);
 
-  const handleMarkLocation = (lat: number, lng: number) => {
+  const handleMarkLocation = (lat: number, lng: number, openUntil: string) => {
     const updatedVendor = {
       ...currentVendor,
       location: {
@@ -767,6 +955,7 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
         lng
       },
       locationMarkedAt: Date.now(),
+      openUntil: openUntil, // Store operating hours
       isStationary: true,
       vendorType: currentVendor.vendorType || 'pushcart', // Preserve vendor type
       hasFixedAddress: currentVendor.hasFixedAddress || false // Preserve fixed address status
