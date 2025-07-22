@@ -281,14 +281,57 @@ const AddVendorModal = ({ onClose, onAddVendor }: AddVendorModalProps) => {
     description: '',
     cuisine: '',
     emoji: '🚚',
-    address: ''
+    address: '',
+    vendorType: 'truck' as 'truck' | 'pushcart' | 'stall'
   });
 
-  const emojiOptions = ['🌮', '🍜', '🍔', '🍕', '🍣', '🧇', '☕', '🍦', '🥙', '🍝', '🍲', '🚚'];
+  const emojiOptions = ['🌮', '🍜', '🍔', '🍕', '🍣', '🧇', '☕', '🍦', '🥙', '🍝', '🍲', '🚚', '🛒', '🏪'];
   const cuisineOptions = ['Mexican', 'Asian', 'American', 'Italian', 'Japanese', 'Mediterranean', 'Indian', 'Thai', 'Chinese', 'BBQ', 'Desserts', 'Coffee'];
+  
+  // Vendor type configurations
+  const vendorTypeOptions = [
+    {
+      value: 'truck',
+      label: '🚚 Food Truck',
+      description: 'Mobile food truck with GPS tracking',
+      defaultEmoji: '🚚',
+      requiresAddress: true
+    },
+    {
+      value: 'pushcart',
+      label: '🛒 Push Cart',
+      description: 'Mobile cart that marks location manually',
+      defaultEmoji: '🛒',
+      requiresAddress: false
+    },
+    {
+      value: 'stall',
+      label: '🏪 Food Stall',
+      description: 'Fixed location food stall',
+      defaultEmoji: '🏪',
+      requiresAddress: true
+    }
+  ];
+  
+  const currentVendorType = vendorTypeOptions.find(type => type.value === newVendor.vendorType);
+  
+  const handleVendorTypeChange = (vendorType: 'truck' | 'pushcart' | 'stall') => {
+    const typeConfig = vendorTypeOptions.find(type => type.value === vendorType);
+    setNewVendor({
+      ...newVendor,
+      vendorType,
+      emoji: typeConfig?.defaultEmoji || '🚚',
+      address: typeConfig?.requiresAddress ? newVendor.address : 'Location varies (mobile vendor)'
+    });
+  };
 
   const handleSubmit = () => {
     if (!newVendor.name || !newVendor.description || !newVendor.cuisine) return;
+    
+    // Determine vendor properties based on type
+    const isStationary = newVendor.vendorType === 'pushcart' || newVendor.vendorType === 'stall';
+    const hasFixedAddress = newVendor.vendorType !== 'pushcart';
+    const speed = isStationary ? 0 : Math.random() * 5; // Stationary vendors don't move
     
     const vendor = {
       id: Date.now(),
@@ -300,19 +343,19 @@ const AddVendorModal = ({ onClose, onAddVendor }: AddVendorModalProps) => {
       location: { 
         lat: 37.7749 + (Math.random() - 0.5) * 0.02,
         lng: -122.4194 + (Math.random() - 0.5) * 0.02,
-        address: newVendor.address || 'San Francisco, CA'
+        address: newVendor.address || (hasFixedAddress ? 'San Francisco, CA' : 'Location varies')
       },
       lastSeen: Date.now(),
-      speed: Math.random() * 5,
+      speed: speed,
       heading: Math.random() * 360,
       accuracy: Math.random() * 10 + 5,
       dishes: [],
       reviews: [],
       // Hybrid Location Model properties
-      vendorType: 'truck' as const, // Default to truck for new vendors
-      isStationary: false, // Trucks are mobile by default
-      hasFixedAddress: true, // New vendors have addresses by default
-      locationMarkedAt: undefined // Only set when vendor marks their spot
+      vendorType: newVendor.vendorType,
+      isStationary: isStationary,
+      hasFixedAddress: hasFixedAddress,
+      locationMarkedAt: newVendor.vendorType === 'pushcart' ? Date.now() : undefined
     };
     
     onAddVendor(vendor);
@@ -325,7 +368,7 @@ const AddVendorModal = ({ onClose, onAddVendor }: AddVendorModalProps) => {
         <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4 md:p-6 rounded-t-2xl">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-lg md:text-xl font-bold">Add New Food Truck</h2>
+              <h2 className="text-lg md:text-xl font-bold">Add New {currentVendorType?.label || 'Vendor'}</h2>
               <p className="opacity-90 text-sm md:text-base">Join the StreetEats network</p>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg">
@@ -335,8 +378,37 @@ const AddVendorModal = ({ onClose, onAddVendor }: AddVendorModalProps) => {
         </div>
 
         <div className="p-4 md:p-6 space-y-4">
+          {/* Vendor Type Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Truck Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Vendor Type</label>
+            <div className="grid grid-cols-1 gap-2">
+              {vendorTypeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleVendorTypeChange(option.value as 'truck' | 'pushcart' | 'stall')}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    newVendor.vendorType === option.value
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{option.defaultEmoji}</span>
+                    <div>
+                      <div className="font-semibold">{option.label}</div>
+                      <div className="text-sm opacity-75">{option.description}</div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {currentVendorType?.value === 'truck' ? 'Truck' : currentVendorType?.value === 'pushcart' ? 'Cart' : 'Stall'} Name
+            </label>
             <input
               type="text"
               placeholder="e.g., Mario's Pizza Palace"
@@ -683,6 +755,21 @@ interface VendorDashboardProps {
 const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashboardProps) => {
   const [activeTab, setActiveTab] = useState('menu');
   const [showMenuBuilder, setShowMenuBuilder] = useState(false);
+  const [showMarkMySpot, setShowMarkMySpot] = useState(false);
+
+  const handleMarkLocation = (lat: number, lng: number) => {
+    const updatedVendor = {
+      ...currentVendor,
+      location: {
+        ...currentVendor.location,
+        lat,
+        lng
+      },
+      locationMarkedAt: Date.now(),
+      isStationary: true
+    };
+    onUpdateVendor(updatedVendor);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -691,6 +778,14 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
           vendor={currentVendor}
           onUpdateVendor={onUpdateVendor}
           onClose={() => setShowMenuBuilder(false)}
+        />
+      )}
+      
+      {showMarkMySpot && (
+        <MarkMySpotModal
+          vendorName={currentVendor.name}
+          onClose={() => setShowMarkMySpot(false)}
+          onMarkLocation={handleMarkLocation}
         />
       )}
 
@@ -710,13 +805,27 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
               </div>
             </div>
             
-            <div className={`flex items-center gap-2 text-xs md:text-sm px-3 py-2 rounded-full ${
-              Date.now() - currentVendor?.lastSeen < 30000 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                Date.now() - currentVendor?.lastSeen < 30000 ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-              }`}></div>
-              {Date.now() - currentVendor?.lastSeen < 30000 ? 'Live & Online' : 'Offline'}
+            <div className="flex items-center gap-3">
+              {/* Quick Mark My Spot button for push carts */}
+              {(currentVendor?.vendorType === 'pushcart' || !currentVendor?.hasFixedAddress) && (
+                <button
+                  onClick={() => setShowMarkMySpot(true)}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                >
+                  <MapPin className="w-4 h-4" />
+                  <span className="hidden sm:inline">Mark My Spot</span>
+                  <span className="sm:hidden">📍</span>
+                </button>
+              )}
+              
+              <div className={`flex items-center gap-2 text-xs md:text-sm px-3 py-2 rounded-full ${
+                Date.now() - currentVendor?.lastSeen < 30000 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  Date.now() - currentVendor?.lastSeen < 30000 ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                }`}></div>
+                {Date.now() - currentVendor?.lastSeen < 30000 ? 'Live & Online' : 'Offline'}
+              </div>
             </div>
           </div>
         </div>
@@ -852,23 +961,114 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
         )}
 
         {activeTab === 'location' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Live Location Tracking</h2>
-            <p className="text-gray-600 mb-6">Monitor your truck's real-time location and customer reach</p>
+          <div className="space-y-6">
+            {/* Mark My Spot Section - Prominent for Push Cart Vendors */}
+            {(currentVendor?.vendorType === 'pushcart' || !currentVendor?.hasFixedAddress) && (
+              <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="text-center md:text-left">
+                    <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                      <div className="text-3xl">🛒</div>
+                      <h2 className="text-2xl font-bold">Push Cart Location</h2>
+                    </div>
+                    <p className="text-purple-100 mb-2">
+                      {currentVendor?.locationMarkedAt 
+                        ? `Last updated: ${new Date(currentVendor.locationMarkedAt).toLocaleString()}`
+                        : 'Set your location to help customers find you!'}
+                    </p>
+                    <p className="text-sm text-purple-200">
+                      Tap "Mark My Spot" when you're ready to serve customers at your current location.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowMarkMySpot(true)}
+                    className="bg-white text-purple-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-50 transition-all duration-200 transform hover:scale-105 shadow-lg flex items-center gap-3 min-w-fit"
+                  >
+                    <MapPin className="w-6 h-6" />
+                    Mark My Spot
+                  </button>
+                </div>
+                
+                {currentVendor?.locationMarkedAt && (
+                  <div className="mt-4 bg-white/10 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span>Location Active - Customers can find you!</span>
+                    </div>
+                    <div className="text-xs text-purple-200 mt-1">
+                      Lat: {currentVendor.location.lat.toFixed(6)}, Lng: {currentVendor.location.lng.toFixed(6)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900">{Math.round(currentVendor?.speed || 0)} km/h</div>
-                <div className="text-gray-600">Current Speed</div>
+            {/* Location Tracking Stats */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {currentVendor?.vendorType === 'pushcart' ? 'Location Status' : 'Live Location Tracking'}
+                  </h2>
+                  <p className="text-gray-600">
+                    {currentVendor?.vendorType === 'pushcart' 
+                      ? 'Monitor your stationary location visibility'
+                      : 'Monitor your truck\'s real-time location and customer reach'}
+                  </p>
+                </div>
+                
+                {currentVendor?.vendorType === 'truck' && (
+                  <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-full ${
+                    currentVendor?.speed > 0 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${
+                      currentVendor?.speed > 0 ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'
+                    }`}></div>
+                    {currentVendor?.speed > 0 ? 'Moving' : 'Stationary'}
+                  </div>
+                )}
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900">±{Math.round(currentVendor?.accuracy || 0)}m</div>
-                <div className="text-gray-600">GPS Accuracy</div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {currentVendor?.vendorType === 'pushcart' 
+                      ? (currentVendor?.locationMarkedAt ? '📍' : '❌')
+                      : `${Math.round(currentVendor?.speed || 0)} km/h`}
+                  </div>
+                  <div className="text-gray-600">
+                    {currentVendor?.vendorType === 'pushcart' ? 'Location Set' : 'Current Speed'}
+                  </div>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-gray-900">±{Math.round(currentVendor?.accuracy || 0)}m</div>
+                  <div className="text-gray-600">GPS Accuracy</div>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-gray-900 text-sm">
+                    {currentVendor?.location?.address || 'Location not set'}
+                  </div>
+                  <div className="text-gray-600">Current Location</div>
+                </div>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900">{currentVendor?.location?.address || 'Unknown'}</div>
-                <div className="text-gray-600">Current Location</div>
-              </div>
+              
+              {/* Additional Push Cart Features */}
+              {currentVendor?.vendorType === 'pushcart' && (
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-start gap-3">
+                    <div className="text-blue-600 mt-0.5">💡</div>
+                    <div>
+                      <h3 className="font-semibold text-blue-900 mb-1">Push Cart Tips:</h3>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>• Mark your spot when you're ready to serve customers</li>
+                        <li>• Update your location if you move to a new spot</li>
+                        <li>• Your location helps customers find you easily</li>
+                        <li>• No fixed address? No problem - just mark your current spot!</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

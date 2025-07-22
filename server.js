@@ -33,6 +33,10 @@ db.serialize(() => {
     accuracy REAL DEFAULT 5,
     status TEXT DEFAULT 'active',
     estimatedTime INTEGER DEFAULT 0,
+    vendorType TEXT DEFAULT 'truck',
+    isStationary BOOLEAN DEFAULT 0,
+    hasFixedAddress BOOLEAN DEFAULT 1,
+    locationMarkedAt INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
@@ -163,14 +167,21 @@ app.post('/api/vendors', (req, res) => {
 // Update vendor
 app.put('/api/vendors/:id', (req, res) => {
   const { id } = req.params;
-  const { name, description, cuisine, emoji, rating, location } = req.body;
+  const { name, description, cuisine, emoji, rating, location, vendorType, isStationary, hasFixedAddress, locationMarkedAt } = req.body;
   
   const query = `UPDATE vendors SET name = ?, description = ?, cuisine = ?, emoji = ?, rating = ?, 
-                 lat = ?, lng = ?, address = ? WHERE id = ?`;
+                 lat = ?, lng = ?, address = ?, vendorType = ?, isStationary = ?, hasFixedAddress = ?, 
+                 locationMarkedAt = ?, lastSeen = ? WHERE id = ?`;
   
   db.run(query, [
     name, description, cuisine, emoji, rating,
-    location.lat, location.lng, location.address, id
+    location.lat, location.lng, location.address,
+    vendorType || 'truck', 
+    isStationary ? 1 : 0, 
+    hasFixedAddress ? 1 : 0,
+    locationMarkedAt || null,
+    Date.now(),
+    id
   ], function(err) {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -265,35 +276,127 @@ app.post('/api/vendors/:vendorId/reviews', (req, res) => {
 // Seed initial data
 app.post('/api/seed', (req, res) => {
   const seedVendors = [
+    // FOOD TRUCKS (Moving with GPS tracking)
     {
       name: "Taco Express",
-      description: "Authentic Mexican street tacos",
+      description: "Authentic Mexican street tacos on wheels",
       cuisine: "Mexican",
       emoji: "🌮",
       rating: 4.8,
       lat: 37.7849,
       lng: -122.4094,
-      address: "Mission District, SF"
+      address: "Mission District, SF",
+      vendorType: "truck",
+      isStationary: false,
+      hasFixedAddress: true
     },
     {
-      name: "Burger Bliss",
+      name: "Burger Bliss Truck",
       description: "Gourmet burgers with local ingredients",
       cuisine: "American",
       emoji: "🍔",
       rating: 4.5,
       lat: 37.7749,
       lng: -122.4194,
-      address: "Downtown SF"
+      address: "Downtown SF",
+      vendorType: "truck",
+      isStationary: false,
+      hasFixedAddress: true
+    },
+    {
+      name: "Ramen Runner",
+      description: "Mobile ramen kitchen serving hot bowls",
+      cuisine: "Japanese",
+      emoji: "🍜",
+      rating: 4.7,
+      lat: 37.7649,
+      lng: -122.4294,
+      address: "SOMA District, SF",
+      vendorType: "truck",
+      isStationary: false,
+      hasFixedAddress: true
+    },
+    // PUSH CARTS (Static, vendor marks spot)
+    {
+      name: "Samosa Cart",
+      description: "Fresh samosas and chutneys - no fixed address",
+      cuisine: "Indian",
+      emoji: "🥟",
+      rating: 4.6,
+      lat: 37.7799,
+      lng: -122.4144,
+      address: "Near Union Square (location varies)",
+      vendorType: "pushcart",
+      isStationary: true,
+      hasFixedAddress: false,
+      locationMarkedAt: Date.now() - 3600000 // Marked 1 hour ago
+    },
+    {
+      name: "Fruit Cart Express",
+      description: "Fresh cut fruits and juices",
+      cuisine: "Healthy",
+      emoji: "🍎",
+      rating: 4.3,
+      lat: 37.7699,
+      lng: -122.4244,
+      address: "Financial District (mobile cart)",
+      vendorType: "pushcart",
+      isStationary: true,
+      hasFixedAddress: false,
+      locationMarkedAt: Date.now() - 1800000 // Marked 30 min ago
+    },
+    {
+      name: "Dosa Corner",
+      description: "South Indian dosas made fresh",
+      cuisine: "South Indian",
+      emoji: "🫓",
+      rating: 4.9,
+      lat: 37.7599,
+      lng: -122.4344,
+      address: "Castro Street (pushcart)",
+      vendorType: "pushcart",
+      isStationary: true,
+      hasFixedAddress: false,
+      locationMarkedAt: Date.now() - 7200000 // Marked 2 hours ago
+    },
+    // FOOD STALLS (Fixed locations)
+    {
+      name: "Noodle Palace",
+      description: "Permanent stall serving Asian noodles",
+      cuisine: "Asian Fusion",
+      emoji: "🍝",
+      rating: 4.4,
+      lat: 37.7549,
+      lng: -122.4394,
+      address: "Ferry Building Marketplace",
+      vendorType: "stall",
+      isStationary: true,
+      hasFixedAddress: true
+    },
+    {
+      name: "Coffee Corner",
+      description: "Artisan coffee and pastries",
+      cuisine: "Coffee & Pastries",
+      emoji: "☕",
+      rating: 4.2,
+      lat: 37.7449,
+      lng: -122.4494,
+      address: "Pier 39 Food Court",
+      vendorType: "stall",
+      isStationary: true,
+      hasFixedAddress: true
     }
   ];
 
   seedVendors.forEach((vendor, index) => {
-    const query = `INSERT OR IGNORE INTO vendors (id, name, description, cuisine, emoji, rating, lat, lng, address, lastSeen)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const query = `INSERT OR IGNORE INTO vendors (id, name, description, cuisine, emoji, rating, lat, lng, address, lastSeen, vendorType, isStationary, hasFixedAddress, locationMarkedAt)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     
     db.run(query, [
       index + 1, vendor.name, vendor.description, vendor.cuisine, vendor.emoji,
-      vendor.rating, vendor.lat, vendor.lng, vendor.address, Date.now()
+      vendor.rating, vendor.lat, vendor.lng, vendor.address, Date.now(),
+      vendor.vendorType || 'truck', vendor.isStationary || false, 
+      vendor.hasFixedAddress !== false, vendor.locationMarkedAt || null
     ]);
   });
 
