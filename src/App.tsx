@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Plus, MapPin, Menu, User, Navigation, ArrowLeft, Edit, Trash2, Save, X, Clock, Star, Filter, ZoomIn, ZoomOut, Target, Timer, Utensils, DollarSign, TrendingUp, RadioIcon, Globe, Play, Pause, MessageCircle, Send, StarIcon } from 'lucide-react';
+import { apiService, ApiVendor } from './services/api';
 
 // TypeScript interfaces
 interface Review {
@@ -1009,68 +1010,64 @@ const App = () => {
   
   const locationServiceRef = useRef(new LocationService());
   
-  // FIXED: Ensure at least one stationary truck is visible
-  const [vendors, setVendors] = useState([
-    {
-      id: 1,
-      name: "Taco Express",
-      description: "Authentic Mexican street tacos",
-      cuisine: "Mexican",
-      emoji: "🌮",
-      rating: 4.8,
-      location: { lat: 37.7849, lng: -122.4094, address: "Mission District, SF" },
-      lastSeen: Date.now(),
-      speed: 0, // STATIONARY - should show info card
-      heading: 0,
-      accuracy: 5,
-      dishes: [
-        { id: 1, name: "Carne Asada Taco", description: "Grilled beef with onions", price: 3.50, category: "Main", available: true },
-        { id: 2, name: "Fish Taco", description: "Beer-battered fish", price: 4.00, category: "Main", available: true }
-      ],
-      reviews: [
-        { id: 1, userName: "Sarah M.", rating: 5, text: "Amazing tacos! Best carne asada in the city.", date: "2024-01-15", timestamp: Date.now() - 86400000 },
-        { id: 2, userName: "Mike R.", rating: 4, text: "Great food, friendly service. Will be back!", date: "2024-01-14", timestamp: Date.now() - 172800000 }
-      ]
-    },
-    {
-      id: 2,
-      name: "Seoul Kitchen",
-      description: "Korean fusion bowls and BBQ",
-      cuisine: "Asian",
-      emoji: "🍜",
-      rating: 4.6,
-      location: { lat: 37.7649, lng: -122.4194, address: "SOMA, SF" },
-      lastSeen: Date.now(),
-      speed: 15, // MOVING
-      heading: 180,
-      accuracy: 12,
-      dishes: [
-        { id: 3, name: "Bulgogi Bowl", description: "Marinated beef with rice", price: 12.99, category: "Main", available: true }
-      ],
-      reviews: [
-        { id: 3, userName: "Jenny K.", rating: 5, text: "Incredible Korean fusion! The bulgogi bowl is perfection.", date: "2024-01-16", timestamp: Date.now() - 43200000 }
-      ]
-    },
-    {
-      id: 3,
-      name: "Burger Bliss",
-      description: "Gourmet burgers with local ingredients",
-      cuisine: "American",
-      emoji: "🍔",
-      rating: 4.7,
-      location: { lat: 37.7549, lng: -122.4294, address: "Castro District, SF" },
-      lastSeen: Date.now(),
-      speed: 8, // MOVING
-      heading: 270,
-      accuracy: 5,
-      dishes: [
-        { id: 4, name: "Classic Burger", description: "Grass-fed beef", price: 11.99, category: "Main", available: true }
-      ],
-      reviews: [
-        { id: 4, userName: "Alex T.", rating: 4, text: "Solid burger, love the local ingredients approach.", date: "2024-01-17", timestamp: Date.now() - 21600000 }
-      ]
-    }
-  ]);
+  // Load vendors from SQLite database
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+
+  // Load vendors from database on component mount
+  useEffect(() => {
+    const loadVendors = async () => {
+      try {
+        const apiVendors = await apiService.getVendors();
+        // Convert API vendors to app vendor format
+        const convertedVendors: Vendor[] = apiVendors.map(apiVendor => ({
+          id: apiVendor.id,
+          name: apiVendor.name,
+          description: apiVendor.description,
+          cuisine: apiVendor.cuisine,
+          emoji: apiVendor.emoji,
+          rating: apiVendor.rating,
+          location: apiVendor.location,
+          lastSeen: apiVendor.lastSeen,
+          speed: apiVendor.speed,
+          heading: apiVendor.heading,
+          accuracy: apiVendor.accuracy,
+          status: apiVendor.status || 'active',
+          estimatedTime: apiVendor.estimatedTime || 0,
+          dishes: apiVendor.dishes,
+          reviews: apiVendor.reviews
+        }));
+        setVendors(convertedVendors);
+      } catch (error) {
+        console.error('Failed to load vendors:', error);
+        // Seed database if empty
+        try {
+          await apiService.seedDatabase();
+          const seededVendors = await apiService.getVendors();
+          const convertedVendors: Vendor[] = seededVendors.map(apiVendor => ({
+            id: apiVendor.id,
+            name: apiVendor.name,
+            description: apiVendor.description,
+            cuisine: apiVendor.cuisine,
+            emoji: apiVendor.emoji,
+            rating: apiVendor.rating,
+            location: apiVendor.location,
+            lastSeen: apiVendor.lastSeen,
+            speed: apiVendor.speed,
+            heading: apiVendor.heading,
+            accuracy: apiVendor.accuracy,
+            status: apiVendor.status || 'active',
+            estimatedTime: apiVendor.estimatedTime || 0,
+            dishes: apiVendor.dishes,
+            reviews: apiVendor.reviews
+          }));
+          setVendors(convertedVendors);
+        } catch (seedError) {
+          console.error('Failed to seed database:', seedError);
+        }
+      }
+    };
+    loadVendors();
+  }, []);
 
   useEffect(() => {
     const locationService = locationServiceRef.current;
@@ -1120,7 +1117,40 @@ const App = () => {
     setMapZoom(16);
   };
 
-  const handleUpdateVendor = (updatedVendor: Vendor) => {
+  const handleUpdateVendor = async (updatedVendor: Vendor) => {
+    try {
+      // Update vendor in database
+      await apiService.updateVendor(updatedVendor.id, {
+        name: updatedVendor.name,
+        description: updatedVendor.description,
+        cuisine: updatedVendor.cuisine,
+        emoji: updatedVendor.emoji,
+        rating: updatedVendor.rating,
+        location: updatedVendor.location
+      });
+      
+      // Update dishes in database if they changed
+      const existingVendor = vendors.find(v => v.id === updatedVendor.id);
+      if (existingVendor && updatedVendor.dishes) {
+        // Handle dish updates (simplified - in production you'd want more sophisticated diff logic)
+        for (const dish of updatedVendor.dishes) {
+          if (dish.id && dish.id > 0) {
+            // Update existing dish
+            await apiService.updateDish(dish.id, dish);
+          } else {
+            // Add new dish
+            await apiService.addDish(updatedVendor.id, dish);
+          }
+        }
+      }
+      
+      console.log(`📝 Vendor ${updatedVendor.name} updated in database`);
+    } catch (error) {
+      console.error('Failed to update vendor in database:', error);
+      console.log(`📝 Vendor ${updatedVendor.name} updated locally only`);
+    }
+    
+    // Update local state regardless of database success
     setVendors(vendors.map(v => v.id === updatedVendor.id ? updatedVendor : v));
     if (selectedVendor?.id === updatedVendor.id) {
       setSelectedVendor(updatedVendor);
@@ -1136,32 +1166,113 @@ const App = () => {
     }
   };
 
-  const handleAddReview = (vendorId: number, newReview: Review) => {
-    const updatedVendors = vendors.map(vendor => {
-      if (vendor.id === vendorId) {
-        const updatedReviews = [...(vendor.reviews || []), newReview];
-        const newRating = updatedReviews.reduce((sum, review) => sum + review.rating, 0) / updatedReviews.length;
-        
-        return {
-          ...vendor,
-          reviews: updatedReviews,
-          rating: Math.round(newRating * 10) / 10
-        };
+  const handleAddReview = async (vendorId: number, newReview: Review) => {
+    try {
+      // Add review to database
+      const apiReview = await apiService.addReview(vendorId, {
+        userName: newReview.userName,
+        rating: newReview.rating,
+        text: newReview.text,
+        date: newReview.date,
+        timestamp: newReview.timestamp
+      });
+      
+      // Update local state
+      const updatedVendors = vendors.map(vendor => {
+        if (vendor.id === vendorId) {
+          const updatedReviews = [...(vendor.reviews || []), {
+            id: apiReview.id,
+            userName: apiReview.userName,
+            rating: apiReview.rating,
+            text: apiReview.text,
+            date: apiReview.date,
+            timestamp: apiReview.timestamp
+          }];
+          const newRating = updatedReviews.reduce((sum, review) => sum + review.rating, 0) / updatedReviews.length;
+          
+          return {
+            ...vendor,
+            reviews: updatedReviews,
+            rating: Math.round(newRating * 10) / 10
+          };
+        }
+        return vendor;
+      });
+      
+      setVendors(updatedVendors);
+      
+      if (selectedVendor?.id === vendorId) {
+        const updatedVendor = updatedVendors.find(v => v.id === vendorId);
+        setSelectedVendor(updatedVendor || null);
       }
-      return vendor;
-    });
-    
-    setVendors(updatedVendors);
-    
-    if (selectedVendor?.id === vendorId) {
-      const updatedVendor = updatedVendors.find(v => v.id === vendorId);
-      setSelectedVendor(updatedVendor || null);
+      
+      console.log(`⭐ Review added to database for vendor ${vendorId}`);
+    } catch (error) {
+      console.error('Failed to add review to database:', error);
+      // Fallback to local state only
+      const updatedVendors = vendors.map(vendor => {
+        if (vendor.id === vendorId) {
+          const updatedReviews = [...(vendor.reviews || []), newReview];
+          const newRating = updatedReviews.reduce((sum, review) => sum + review.rating, 0) / updatedReviews.length;
+          
+          return {
+            ...vendor,
+            reviews: updatedReviews,
+            rating: Math.round(newRating * 10) / 10
+          };
+        }
+        return vendor;
+      });
+      
+      setVendors(updatedVendors);
+      
+      if (selectedVendor?.id === vendorId) {
+        const updatedVendor = updatedVendors.find(v => v.id === vendorId);
+        setSelectedVendor(updatedVendor || null);
+      }
+      
+      console.log(`⭐ Review added locally for vendor ${vendorId}`);
     }
   };
 
-  const handleAddVendor = (newVendor: Vendor) => {
-    setVendors([...vendors, newVendor]);
-    console.log(`🚚 New vendor added: ${newVendor.name}`);
+  const handleAddVendor = async (newVendor: Vendor) => {
+    try {
+      const apiVendor = await apiService.createVendor({
+        name: newVendor.name,
+        description: newVendor.description,
+        cuisine: newVendor.cuisine,
+        emoji: newVendor.emoji,
+        rating: newVendor.rating,
+        location: newVendor.location
+      });
+      
+      // Convert API vendor back to app format
+      const convertedVendor: Vendor = {
+        id: apiVendor.id,
+        name: apiVendor.name,
+        description: apiVendor.description,
+        cuisine: apiVendor.cuisine,
+        emoji: apiVendor.emoji,
+        rating: apiVendor.rating,
+        location: apiVendor.location,
+        lastSeen: apiVendor.lastSeen,
+        speed: apiVendor.speed,
+        heading: apiVendor.heading,
+        accuracy: apiVendor.accuracy,
+        status: 'active',
+        estimatedTime: 0,
+        dishes: [],
+        reviews: []
+      };
+      
+      setVendors([...vendors, convertedVendor]);
+      console.log(`🚚 New vendor added to database: ${convertedVendor.name}`);
+    } catch (error) {
+      console.error('Failed to add vendor to database:', error);
+      // Fallback to local state only
+      setVendors([...vendors, newVendor]);
+      console.log(`🚚 New vendor added locally: ${newVendor.name}`);
+    }
   };
 
   const handleVendorLogin = (vendorId: number) => {
