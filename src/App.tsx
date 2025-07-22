@@ -756,6 +756,7 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
   const [activeTab, setActiveTab] = useState('menu');
   const [showMenuBuilder, setShowMenuBuilder] = useState(false);
   const [showMarkMySpot, setShowMarkMySpot] = useState(false);
+  const [showLiveNotification, setShowLiveNotification] = useState(false);
 
   const handleMarkLocation = (lat: number, lng: number) => {
     const updatedVendor = {
@@ -771,6 +772,12 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
       hasFixedAddress: currentVendor.hasFixedAddress || false // Preserve fixed address status
     };
     onUpdateVendor(updatedVendor);
+    
+    // Show cool "You are live now!" notification
+    setShowLiveNotification(true);
+    setTimeout(() => {
+      setShowLiveNotification(false);
+    }, 4000); // Hide after 4 seconds
   };
 
   return (
@@ -789,6 +796,30 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
           onClose={() => setShowMarkMySpot(false)}
           onMarkLocation={handleMarkLocation}
         />
+      )}
+      
+      {/* Cool "You are live now!" notification */}
+      {showLiveNotification && (
+        <div className="fixed top-4 right-4 z-50 animate-bounce">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-2xl shadow-2xl border-2 border-green-300 transform transition-all duration-500 hover:scale-105">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                </div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping"></div>
+              </div>
+              <div>
+                <div className="font-bold text-lg flex items-center gap-2">
+                  🎉 You are LIVE now!
+                </div>
+                <div className="text-sm text-green-100">
+                  Customers can find you at your marked location
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <header className="bg-white shadow-sm border-b border-gray-200">
@@ -819,12 +850,24 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
               </button>
               
               <div className={`flex items-center gap-2 text-xs md:text-sm px-3 py-2 rounded-full ${
-                Date.now() - currentVendor?.lastSeen < 30000 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                currentVendor?.locationMarkedAt 
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg border-2 border-green-300' 
+                  : Date.now() - currentVendor?.lastSeen < 30000 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-gray-100 text-gray-600'
               }`}>
                 <div className={`w-2 h-2 rounded-full ${
-                  Date.now() - currentVendor?.lastSeen < 30000 ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                  currentVendor?.locationMarkedAt 
+                    ? 'bg-white animate-pulse' 
+                    : Date.now() - currentVendor?.lastSeen < 30000 
+                      ? 'bg-green-500 animate-pulse' 
+                      : 'bg-gray-400'
                 }`}></div>
-                {Date.now() - currentVendor?.lastSeen < 30000 ? 'Live & Online' : 'Offline'}
+                {currentVendor?.locationMarkedAt 
+                  ? '🔴 LIVE NOW' 
+                  : Date.now() - currentVendor?.lastSeen < 30000 
+                    ? 'Live & Online' 
+                    : 'Offline'}
               </div>
             </div>
           </div>
@@ -1112,6 +1155,7 @@ const App = () => {
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [currentVendor, setCurrentVendor] = useState<Vendor | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [cartQuantities, setCartQuantities] = useState<{[dishId: number]: number}>({});
   
   const locationServiceRef = useRef(new LocationService());
   
@@ -1232,6 +1276,34 @@ const App = () => {
     setShowMenuOnly(true);
     setShowReviewsOnly(false);
     setMapZoom(16);
+  };
+
+  // Cart quantity management functions for dishes
+  const addToCart = (dishId: number) => {
+    setCartQuantities(prev => ({
+      ...prev,
+      [dishId]: (prev[dishId] || 0) + 1
+    }));
+  };
+
+  const removeFromCart = (dishId: number) => {
+    setCartQuantities(prev => {
+      const newQuantities = { ...prev };
+      if (newQuantities[dishId] && newQuantities[dishId] > 1) {
+        newQuantities[dishId]--;
+      } else {
+        delete newQuantities[dishId];
+      }
+      return newQuantities;
+    });
+  };
+
+  const clearFromCart = (dishId: number) => {
+    setCartQuantities(prev => {
+      const newQuantities = { ...prev };
+      delete newQuantities[dishId];
+      return newQuantities;
+    });
   };
 
   const handleReviewsOnlyView = (vendor: Vendor) => {
@@ -1692,9 +1764,36 @@ const App = () => {
                               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                                 {dish.category}
                               </span>
-                              <button className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-700 transition-colors">
-                                Add to Order
-                              </button>
+                              {cartQuantities[dish.id] ? (
+                                <div className="flex items-center gap-2 bg-orange-100 rounded-lg px-2 py-1">
+                                  <button
+                                    onClick={() => clearFromCart(dish.id)}
+                                    className="text-red-600 hover:text-red-700 transition-colors p-1"
+                                    title="Remove from cart"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                  <span className="text-orange-700 font-semibold min-w-[1.5rem] text-center">
+                                    {cartQuantities[dish.id]}
+                                  </span>
+                                  <button
+                                    onClick={() => addToCart(dish.id)}
+                                    className="text-orange-600 hover:text-orange-700 transition-colors p-1"
+                                    title="Add to cart"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => addToCart(dish.id)}
+                                  className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-700 transition-colors"
+                                  title="Add to cart"
+                                >
+                                  <Plus className="w-4 h-4 mr-1" />
+                                  Add to Order
+                                </button>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1905,9 +2004,36 @@ const App = () => {
                             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                               {dish.category}
                             </span>
-                            <button className="bg-orange-600 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm hover:bg-orange-700 transition-colors">
-                              Add to Order
-                            </button>
+                            {cartQuantities[dish.id] ? (
+                              <div className="flex items-center gap-2 bg-orange-100 rounded-lg px-2 py-1">
+                                <button
+                                  onClick={() => clearFromCart(dish.id)}
+                                  className="text-red-600 hover:text-red-700 transition-colors p-1"
+                                  title="Remove from cart"
+                                >
+                                  <Trash2 className="w-3 md:w-4 h-3 md:h-4" />
+                                </button>
+                                <span className="text-orange-700 font-semibold min-w-[1.5rem] text-center text-xs md:text-sm">
+                                  {cartQuantities[dish.id]}
+                                </span>
+                                <button
+                                  onClick={() => addToCart(dish.id)}
+                                  className="text-orange-600 hover:text-orange-700 transition-colors p-1"
+                                  title="Add to cart"
+                                >
+                                  <Plus className="w-3 md:w-4 h-3 md:h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => addToCart(dish.id)}
+                                className="bg-orange-600 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm hover:bg-orange-700 transition-colors"
+                                title="Add to cart"
+                              >
+                                <Plus className="w-3 md:w-4 h-3 md:h-4 mr-1" />
+                                Add to Order
+                              </button>
+                            )}
                           </div>
                         </div>
                       )) || (
@@ -2021,7 +2147,7 @@ const App = () => {
                               className="flex items-center hover:text-orange-600 hover:bg-orange-50 px-2 py-1 rounded-lg transition-colors"
                               title="View Menu"
                             >
-                              <Utensils className="w-3 md:w-4 h-3 md:h-4 mr-1" />
+                              <Edit className="w-3 md:w-4 h-3 md:h-4 mr-1" />
                               {vendor.dishes?.length || 0} dishes
                             </button>
                             <span className="flex items-center">
