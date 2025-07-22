@@ -292,16 +292,16 @@ app.post('/api/seed', (req, res) => {
     },
     {
       name: "Burger Bliss Truck",
-      description: "Gourmet burgers with local ingredients",
+      description: "Gourmet burgers with local ingredients - now mobile cart!",
       cuisine: "American",
       emoji: "🍔",
       rating: 4.5,
       lat: 37.7749,
       lng: -122.4194,
-      address: "Downtown SF",
-      vendorType: "truck",
-      isStationary: false,
-      hasFixedAddress: true
+      address: "Downtown SF (mobile cart)",
+      vendorType: "pushcart",
+      isStationary: true,
+      hasFixedAddress: false
     },
     {
       name: "Ramen Runner",

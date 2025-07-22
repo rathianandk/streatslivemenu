@@ -766,7 +766,9 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
         lng
       },
       locationMarkedAt: Date.now(),
-      isStationary: true
+      isStationary: true,
+      vendorType: currentVendor.vendorType || 'pushcart', // Preserve vendor type
+      hasFixedAddress: currentVendor.hasFixedAddress || false // Preserve fixed address status
     };
     onUpdateVendor(updatedVendor);
   };
@@ -806,17 +808,15 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
             </div>
             
             <div className="flex items-center gap-3">
-              {/* Quick Mark My Spot button for push carts */}
-              {(currentVendor?.vendorType === 'pushcart' || !currentVendor?.hasFixedAddress) && (
-                <button
-                  onClick={() => setShowMarkMySpot(true)}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 text-sm font-medium"
-                >
-                  <MapPin className="w-4 h-4" />
-                  <span className="hidden sm:inline">Mark My Spot</span>
-                  <span className="sm:hidden">📍</span>
-                </button>
-              )}
+              {/* Mark My Spot button for all vendors */}
+              <button
+                onClick={() => setShowMarkMySpot(true)}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 text-sm font-medium"
+              >
+                <MapPin className="w-4 h-4" />
+                <span className="hidden sm:inline">Mark My Spot</span>
+                <span className="sm:hidden">📍</span>
+              </button>
               
               <div className={`flex items-center gap-2 text-xs md:text-sm px-3 py-2 rounded-full ${
                 Date.now() - currentVendor?.lastSeen < 30000 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
@@ -962,46 +962,44 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
 
         {activeTab === 'location' && (
           <div className="space-y-6">
-            {/* Mark My Spot Section - Prominent for Push Cart Vendors */}
-            {(currentVendor?.vendorType === 'pushcart' || !currentVendor?.hasFixedAddress) && (
-              <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div className="text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                      <div className="text-3xl">🛒</div>
-                      <h2 className="text-2xl font-bold">Push Cart Location</h2>
-                    </div>
-                    <p className="text-purple-100 mb-2">
-                      {currentVendor?.locationMarkedAt 
-                        ? `Last updated: ${new Date(currentVendor.locationMarkedAt).toLocaleString()}`
-                        : 'Set your location to help customers find you!'}
-                    </p>
-                    <p className="text-sm text-purple-200">
-                      Tap "Mark My Spot" when you're ready to serve customers at your current location.
-                    </p>
+            {/* Mark My Spot Section - Available for All Vendors */}
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="text-center md:text-left">
+                  <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                    <div className="text-3xl">📍</div>
+                    <h2 className="text-2xl font-bold">Vendor Location</h2>
                   </div>
-                  <button
-                    onClick={() => setShowMarkMySpot(true)}
-                    className="bg-white text-purple-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-50 transition-all duration-200 transform hover:scale-105 shadow-lg flex items-center gap-3 min-w-fit"
-                  >
-                    <MapPin className="w-6 h-6" />
-                    Mark My Spot
-                  </button>
+                  <p className="text-purple-100 mb-2">
+                    {currentVendor?.locationMarkedAt 
+                      ? `Last updated: ${new Date(currentVendor.locationMarkedAt).toLocaleString()}`
+                      : 'Set your location to help customers find you!'}
+                  </p>
+                  <p className="text-sm text-purple-200">
+                    Tap "Mark My Spot" when you're ready to serve customers at your current location.
+                  </p>
                 </div>
-                
-                {currentVendor?.locationMarkedAt && (
-                  <div className="mt-4 bg-white/10 rounded-lg p-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span>Location Active - Customers can find you!</span>
-                    </div>
-                    <div className="text-xs text-purple-200 mt-1">
-                      Lat: {currentVendor.location.lat.toFixed(6)}, Lng: {currentVendor.location.lng.toFixed(6)}
-                    </div>
-                  </div>
-                )}
+                <button
+                  onClick={() => setShowMarkMySpot(true)}
+                  className="bg-white text-purple-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-50 transition-all duration-200 transform hover:scale-105 shadow-lg flex items-center gap-3 min-w-fit"
+                >
+                  <MapPin className="w-6 h-6" />
+                  Mark My Spot
+                </button>
               </div>
-            )}
+              
+              {currentVendor?.locationMarkedAt && (
+                <div className="mt-4 bg-white/10 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span>Location Active - Customers can find you!</span>
+                  </div>
+                  <div className="text-xs text-purple-200 mt-1">
+                    Lat: {currentVendor.location.lat.toFixed(6)}, Lng: {currentVendor.location.lng.toFixed(6)}
+                  </div>
+                </div>
+              )}
+            </div>
             
             {/* Location Tracking Stats */}
             <div className="bg-white rounded-lg shadow p-6">
