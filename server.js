@@ -279,16 +279,16 @@ app.post('/api/seed', (req, res) => {
     // FOOD TRUCKS (Moving with GPS tracking)
     {
       name: "Taco Express",
-      description: "Authentic Mexican street tacos on wheels",
+      description: "Authentic Mexican street tacos - push cart style!",
       cuisine: "Mexican",
       emoji: "🌮",
       rating: 4.8,
       lat: 37.7849,
       lng: -122.4094,
-      address: "Mission District, SF",
-      vendorType: "truck",
-      isStationary: false,
-      hasFixedAddress: true
+      address: "Mission District, SF (mobile cart)",
+      vendorType: "pushcart",
+      isStationary: true,
+      hasFixedAddress: false
     },
     {
       name: "Burger Bliss Truck",
