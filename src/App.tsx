@@ -39,6 +39,8 @@ interface Vendor {
   accuracy: number;
   dishes: Dish[];
   reviews: Review[];
+  status?: string;
+  estimatedTime?: number;
 }
 
 interface User {
@@ -49,6 +51,11 @@ interface User {
 
 // Mock Location Service
 class LocationService {
+  isConnected: boolean;
+  subscribers: Set<(data: any) => void>;
+  simulationActive: boolean;
+  simulationInterval: NodeJS.Timeout | null;
+
   constructor() {
     this.isConnected = false;
     this.subscribers = new Set();
@@ -61,16 +68,16 @@ class LocationService {
     this.notifySubscribers({ type: 'connected' });
   }
   
-  subscribe(callback) {
+  subscribe(callback: (data: any) => void) {
     this.subscribers.add(callback);
     return () => this.subscribers.delete(callback);
   }
   
-  notifySubscribers(data) {
+  notifySubscribers(data: any) {
     this.subscribers.forEach(callback => callback(data));
   }
   
-  updateLocation(vendorId, location) {
+  updateLocation(vendorId: number, location: any) {
     this.notifySubscribers({
       type: 'vendor_location_update',
       vendorId,
@@ -79,7 +86,7 @@ class LocationService {
     });
   }
   
-  startSimulation(vendors, updateCallback) {
+  startSimulation(vendors: Vendor[], updateCallback: (vendorId: number, location: any) => void) {
     if (this.simulationInterval) return;
     
     this.simulationActive = true;
@@ -109,7 +116,7 @@ class LocationService {
     }
   }
   
-  toggleSimulation(vendors, updateCallback) {
+  toggleSimulation(vendors: Vendor[], updateCallback: (vendorId: number, location: any) => void) {
     if (this.simulationActive) {
       this.stopSimulation();
       return false;
@@ -121,7 +128,12 @@ class LocationService {
 }
 
 // Add New Vendor Modal Component
-const AddVendorModal = ({ onClose, onAddVendor }) => {
+interface AddVendorModalProps {
+  onClose: () => void;
+  onAddVendor: (vendor: Vendor) => void;
+}
+
+const AddVendorModal = ({ onClose, onAddVendor }: AddVendorModalProps) => {
   const [newVendor, setNewVendor] = useState({
     name: '',
     description: '',
@@ -194,7 +206,7 @@ const AddVendorModal = ({ onClose, onAddVendor }) => {
               value={newVendor.description}
               onChange={(e) => setNewVendor({ ...newVendor, description: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-              rows="3"
+              rows={3}
             />
           </div>
 
@@ -265,7 +277,13 @@ const AddVendorModal = ({ onClose, onAddVendor }) => {
 };
 
 // Review Modal Component
-const ReviewModal = ({ vendor, onClose, onAddReview }) => {
+interface ReviewModalProps {
+  vendor: Vendor;
+  onClose: () => void;
+  onAddReview: (vendorId: number, review: Review) => void;
+}
+
+const ReviewModal = ({ vendor, onClose, onAddReview }: ReviewModalProps) => {
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [userName, setUserName] = useState('');
@@ -338,7 +356,7 @@ const ReviewModal = ({ vendor, onClose, onAddReview }) => {
               value={reviewText}
               onChange={(e) => setReviewText(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              rows="4"
+              rows={4}
             />
             <div className="text-xs text-gray-500 mt-1">{reviewText.length}/500 characters</div>
           </div>
@@ -366,7 +384,13 @@ const ReviewModal = ({ vendor, onClose, onAddReview }) => {
 };
 
 // Menu Builder Component
-const MenuBuilder = ({ vendor, onUpdateVendor, onClose }) => {
+interface MenuBuilderProps {
+  vendor: Vendor;
+  onUpdateVendor: (vendor: Vendor) => void;
+  onClose: () => void;
+}
+
+const MenuBuilder = ({ vendor, onUpdateVendor, onClose }: MenuBuilderProps) => {
   const [dishes, setDishes] = useState(vendor?.dishes || []);
   const [newDish, setNewDish] = useState({
     name: '',
@@ -392,8 +416,8 @@ const MenuBuilder = ({ vendor, onUpdateVendor, onClose }) => {
     setNewDish({ name: '', description: '', price: '', category: 'Main' });
   };
 
-  const handleDeleteDish = (dishId) => {
-    const updatedDishes = dishes.filter(dish => dish.id !== dishId);
+  const handleDeleteDish = (dishId: number) => {
+    const updatedDishes = dishes.filter((dish: Dish) => dish.id !== dishId);
     setDishes(updatedDishes);
     onUpdateVendor({ ...vendor, dishes: updatedDishes });
   };
@@ -456,7 +480,7 @@ const MenuBuilder = ({ vendor, onUpdateVendor, onClose }) => {
               value={newDish.description}
               onChange={(e) => setNewDish({ ...newDish, description: e.target.value })}
               className="w-full mt-4 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-              rows="2"
+              rows={2}
             />
           </div>
 
@@ -523,7 +547,7 @@ const GoogleMapComponent = ({
     return () => clearTimeout(timer);
   }, []);
 
-  const calculateETA = (vendorLocation) => {
+  const calculateETA = (vendorLocation: { lat: number; lng: number }) => {
     if (!userLocation) return null;
     const distance = Math.sqrt(
       Math.pow(vendorLocation.lat - userLocation.lat, 2) + 
@@ -533,7 +557,7 @@ const GoogleMapComponent = ({
   };
 
   // Better positioning to ensure trucks are visible
-  const getVendorPosition = (vendor, index) => {
+  const getVendorPosition = (vendor: Vendor, index: number) => {
     // Position trucks in a more visible layout
     const positions = [
       { left: '65%', top: '35%' }, // Taco Express - top right
@@ -544,7 +568,7 @@ const GoogleMapComponent = ({
     return positions[index] || { left: '50%', top: '50%' };
   };
 
-  const getStatusColor = (vendor) => {
+  const getStatusColor = (vendor: Vendor) => {
     switch (vendor.status || 'active') {
       case 'active': 
         return vendor.speed <= 2 ? 'bg-green-600 ring-green-400' : 'bg-green-500 ring-green-300';
@@ -555,7 +579,7 @@ const GoogleMapComponent = ({
     }
   };
 
-  const getStatusLabel = (vendor) => {
+  const getStatusLabel = (vendor: Vendor) => {
     if ((vendor.status === 'active' || !vendor.status) && vendor.speed <= 2) {
       return vendor.estimatedTime === 0 ? 'OPEN NOW' : `ARRIVING IN ${vendor.estimatedTime || 0}min`;
     }
@@ -743,7 +767,13 @@ const GoogleMapComponent = ({
 };
 
 // Vendor Dashboard Component
-const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }) => {
+interface VendorDashboardProps {
+  currentVendor: Vendor;
+  onUpdateVendor: (vendor: Vendor) => void;
+  onBack: () => void;
+}
+
+const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashboardProps) => {
   const [activeTab, setActiveTab] = useState('menu');
   const [showMenuBuilder, setShowMenuBuilder] = useState(false);
 
@@ -1052,7 +1082,7 @@ const App = () => {
       }
     });
     
-    return () => unsubscribe();
+    return () => { unsubscribe(); };
   }, []);
 
   const updateVendorLocation = (vendorId: number, location: { lat: number; lng: number; heading: number; speed: number; accuracy: number }) => {
@@ -1153,14 +1183,15 @@ const App = () => {
     vendor.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (currentView === 'dashboard' && currentUser) {
+  if (currentView === 'dashboard' && currentUser && currentVendor) {
     return (
       <VendorDashboard
-        currentVendor={currentUser}
+        currentVendor={currentVendor}
         onUpdateVendor={handleUpdateVendor}
         onBack={() => {
           setCurrentView('landing');
           setCurrentUser(null);
+          setCurrentVendor(null);
         }}
       />
     );
