@@ -2208,16 +2208,6 @@ const App = () => {
                         >
                           <MessageCircle className="w-4 h-4" />
                         </button>
-                        <button 
-                          onClick={() => {
-                            setCurrentVendor(selectedVendor);
-                            setShowMenuBuilder(true);
-                          }}
-                          className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                          title="Edit Menu"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
                       </div>
                     </div>
                   </div>
