@@ -159,6 +159,7 @@ const MapComponent: React.FC<GoogleMapProps> = ({
       const isSelected = selectedVendor?.id === vendor.id;
       const isOnline = Date.now() - vendor.lastSeen < 30000;
       const isArrived = isOnline && vendor.speed <= 2;
+      const isLiveNow = vendor.locationMarkedAt && Date.now() - vendor.locationMarkedAt < 3600000; // Live for 1 hour after marking
       
       // Hybrid Location Model: Determine vendor type and behavior
       const isStationary = vendor.isStationary || vendor.vendorType === 'pushcart' || vendor.vendorType === 'stall';
@@ -190,19 +191,41 @@ const MapComponent: React.FC<GoogleMapProps> = ({
           }
         }
         
-        // Update marker icon for status changes with vendor type distinction
+        // Update marker icon for status changes with vendor type distinction and live status
         const vendorEmoji = isPushCart ? '🛒' : isStall ? '🏪' : '🚚';
         const markerShape = isStationary ? 'rect' : 'circle';
-        const markerColor = isSelected ? '#3B82F6' : isStationary ? '#8B5CF6' : isArrived ? '#10B981' : '#F97316';
+        const markerColor = isSelected 
+          ? '#3B82F6' 
+          : isLiveNow 
+            ? '#10B981' // Bright green for live vendors
+            : isStationary 
+              ? '#8B5CF6' 
+              : isArrived 
+                ? '#10B981' 
+                : '#F97316';
         const borderStyle = isStationary ? 'stroke-dasharray="5,5"' : '';
+        const glowEffect = isLiveNow ? 'filter="drop-shadow(0 0 8px #10B981)"' : '';
         
         marker.setIcon({
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
             <svg width="60" height="80" viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
+              <!-- Glow effect for live vendors -->
+              ${isLiveNow ? `
+                <defs>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feMerge> 
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/> 
+                    </feMerge>
+                  </filter>
+                </defs>
+              ` : ''}
+              
               <!-- Main marker shape - circle for trucks, square for stationary -->
               ${markerShape === 'circle' ? 
-                `<circle cx="30" cy="30" r="25" fill="${markerColor}" stroke="white" stroke-width="3" ${borderStyle}/>` :
-                `<rect x="5" y="5" width="50" height="50" rx="8" fill="${markerColor}" stroke="white" stroke-width="3" ${borderStyle}/>`
+                `<circle cx="30" cy="30" r="25" fill="${markerColor}" stroke="white" stroke-width="3" ${borderStyle} ${isLiveNow ? 'filter="url(#glow)"' : ''}/>` :
+                `<rect x="5" y="5" width="50" height="50" rx="8" fill="${markerColor}" stroke="white" stroke-width="3" ${borderStyle} ${isLiveNow ? 'filter="url(#glow)"' : ''}/>`
               }
               
               <!-- Vendor emoji with rotation for trucks only -->
@@ -213,9 +236,17 @@ const MapComponent: React.FC<GoogleMapProps> = ({
                 `<text x="30" y="38" text-anchor="middle" font-size="20" fill="white">${vendorEmoji}</text>`
               }
               
-              <!-- Status indicator -->
-              <circle cx="45" cy="15" r="8" fill="${isArrived ? '#10B981' : isOnline ? '#F59E0B' : '#EF4444'}" stroke="white" stroke-width="2"/>
-              <text x="45" y="19" text-anchor="middle" font-size="10" fill="white">${isArrived ? '✓' : isOnline ? '📍' : '×'}</text>
+              <!-- Enhanced status indicator with live status -->
+              <circle cx="45" cy="15" r="8" fill="${isLiveNow ? '#10B981' : isArrived ? '#10B981' : isOnline ? '#F59E0B' : '#EF4444'}" stroke="white" stroke-width="2"/>
+              <text x="45" y="19" text-anchor="middle" font-size="10" fill="white">${isLiveNow ? '🔴' : isArrived ? '✓' : isOnline ? '📍' : '×'}</text>
+              
+              <!-- Live indicator pulse animation -->
+              ${isLiveNow ? `
+                <circle cx="45" cy="15" r="8" fill="none" stroke="#10B981" stroke-width="2" opacity="0.6">
+                  <animate attributeName="r" values="8;15;8" dur="2s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite"/>
+                </circle>
+              ` : ''}
               
               <!-- Vendor name label -->
               <rect x="5" y="55" width="50" height="20" rx="10" fill="rgba(0,0,0,0.8)" stroke="white" stroke-width="1"/>

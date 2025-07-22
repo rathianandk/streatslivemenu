@@ -21,6 +21,11 @@ export interface ApiVendor {
   reviews: ApiReview[];
   status?: string;
   estimatedTime?: number;
+  // Hybrid Location Model fields
+  vendorType?: 'truck' | 'pushcart' | 'stall';
+  isStationary?: boolean;
+  hasFixedAddress?: boolean;
+  locationMarkedAt?: number;
 }
 
 export interface ApiDish {

@@ -854,20 +854,26 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
                   ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg border-2 border-green-300' 
                   : Date.now() - currentVendor?.lastSeen < 30000 
                     ? 'bg-green-100 text-green-700' 
-                    : 'bg-gray-100 text-gray-600'
+                    : currentVendor?.locationMarkedAt !== undefined 
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-600'
               }`}>
                 <div className={`w-2 h-2 rounded-full ${
                   currentVendor?.locationMarkedAt 
                     ? 'bg-white animate-pulse' 
                     : Date.now() - currentVendor?.lastSeen < 30000 
                       ? 'bg-green-500 animate-pulse' 
-                      : 'bg-gray-400'
+                      : currentVendor?.locationMarkedAt !== undefined
+                        ? 'bg-green-500 animate-pulse'
+                        : 'bg-gray-400'
                 }`}></div>
                 {currentVendor?.locationMarkedAt 
                   ? '🔴 LIVE NOW' 
                   : Date.now() - currentVendor?.lastSeen < 30000 
                     ? 'Live & Online' 
-                    : 'Offline'}
+                    : currentVendor?.locationMarkedAt !== undefined
+                      ? 'Online'
+                      : 'Offline'}
               </div>
             </div>
           </div>
@@ -1315,14 +1321,19 @@ const App = () => {
 
   const handleUpdateVendor = async (updatedVendor: Vendor) => {
     try {
-      // Update vendor in database
+      // Update vendor in database with all fields including Hybrid Location Model data
       await apiService.updateVendor(updatedVendor.id, {
         name: updatedVendor.name,
         description: updatedVendor.description,
         cuisine: updatedVendor.cuisine,
         emoji: updatedVendor.emoji,
         rating: updatedVendor.rating,
-        location: updatedVendor.location
+        location: updatedVendor.location,
+        // Hybrid Location Model fields
+        vendorType: updatedVendor.vendorType,
+        isStationary: updatedVendor.isStationary,
+        hasFixedAddress: updatedVendor.hasFixedAddress,
+        locationMarkedAt: updatedVendor.locationMarkedAt
       });
       
       // Update dishes in database if they changed
@@ -1350,6 +1361,9 @@ const App = () => {
     setVendors(vendors.map(v => v.id === updatedVendor.id ? updatedVendor : v));
     if (selectedVendor?.id === updatedVendor.id) {
       setSelectedVendor(updatedVendor);
+    }
+    if (currentVendor?.id === updatedVendor.id) {
+      setCurrentVendor(updatedVendor);
     }
     if (currentUser?.id === updatedVendor.id) {
       // Convert Vendor to User for currentUser state
@@ -2110,21 +2124,37 @@ const App = () => {
                   const isOnline = Date.now() - vendor.lastSeen < 30000;
                   const isArrived = isOnline && vendor.speed <= 2;
                   
+                  const isLiveNow = vendor.locationMarkedAt && Date.now() - vendor.locationMarkedAt < 3600000; // Live for 1 hour after marking
+                  
                   return (
-                    <div key={vendor.id} className="cursor-pointer bg-white rounded-xl md:rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100" onClick={() => handleVendorSelect(vendor)}>
+                    <div key={vendor.id} className={`cursor-pointer rounded-xl md:rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border ${
+                      isLiveNow 
+                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-green-100' 
+                        : 'bg-white border-gray-100'
+                    }`} onClick={() => handleVendorSelect(vendor)}>
                       <div className="p-4 md:p-6">
                         <div className="flex items-start justify-between mb-3 md:mb-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <h3 className="text-lg md:text-xl font-bold text-gray-900">{vendor.name}</h3>
                               <div className={`w-2 h-2 rounded-full ${
-                                isArrived ? 'bg-green-500 animate-pulse' : isOnline ? 'bg-yellow-500' : 'bg-gray-400'
+                                isLiveNow 
+                                  ? 'bg-green-500 animate-pulse' 
+                                  : isArrived 
+                                    ? 'bg-green-500 animate-pulse' 
+                                    : isOnline 
+                                      ? 'bg-yellow-500' 
+                                      : 'bg-gray-400'
                               }`}></div>
-                              {isArrived && (
+                              {isLiveNow ? (
+                                <div className="text-xs bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-1 rounded-full font-medium shadow-sm">
+                                  🔴 LIVE NOW
+                                </div>
+                              ) : isArrived ? (
                                 <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
                                   OPEN NOW
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                             <p className="text-gray-600 text-xs md:text-sm mb-3">{vendor.description}</p>
                           </div>

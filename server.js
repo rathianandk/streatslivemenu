@@ -40,6 +40,31 @@ db.serialize(() => {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
+  // Add Hybrid Location Model columns if they don't exist (migration)
+  db.run(`ALTER TABLE vendors ADD COLUMN vendorType TEXT DEFAULT 'truck'`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Migration error for vendorType:', err.message);
+    }
+  });
+  
+  db.run(`ALTER TABLE vendors ADD COLUMN isStationary BOOLEAN DEFAULT 0`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Migration error for isStationary:', err.message);
+    }
+  });
+  
+  db.run(`ALTER TABLE vendors ADD COLUMN hasFixedAddress BOOLEAN DEFAULT 1`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Migration error for hasFixedAddress:', err.message);
+    }
+  });
+  
+  db.run(`ALTER TABLE vendors ADD COLUMN locationMarkedAt INTEGER`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Migration error for locationMarkedAt:', err.message);
+    }
+  });
+
   // Dishes table
   db.run(`CREATE TABLE IF NOT EXISTS dishes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
