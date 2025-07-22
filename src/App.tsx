@@ -998,6 +998,7 @@ const App = () => {
   const [currentView, setCurrentView] = useState('landing');
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [showMenuOnly, setShowMenuOnly] = useState(false);
+  const [showReviewsOnly, setShowReviewsOnly] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [mapZoom, setMapZoom] = useState(13);
   const [simulationActive, setSimulationActive] = useState(false);
@@ -1108,12 +1109,21 @@ const App = () => {
   const handleVendorSelect = (vendor: Vendor) => {
     setSelectedVendor(vendor);
     setShowMenuOnly(false);
+    setShowReviewsOnly(false);
     setMapZoom(16);
   };
 
   const handleMenuOnlyView = (vendor: Vendor) => {
     setSelectedVendor(vendor);
     setShowMenuOnly(true);
+    setShowReviewsOnly(false);
+    setMapZoom(16);
+  };
+
+  const handleReviewsOnlyView = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setShowReviewsOnly(true);
+    setShowMenuOnly(false);
     setMapZoom(16);
   };
 
@@ -1576,6 +1586,91 @@ const App = () => {
                     )}
                   </div>
                 </div>
+              ) : showReviewsOnly ? (
+                // Reviews-only view
+                <div className="flex-1 flex flex-col">
+                  <div className="p-4 md:p-6 border-b border-gray-200 bg-blue-50">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{selectedVendor.emoji}</span>
+                        <div>
+                          <h2 className="text-xl md:text-2xl font-bold text-gray-900">{selectedVendor.name}</h2>
+                          <p className="text-gray-600 text-sm">Customer Reviews ({selectedVendor.reviews?.length || 0})</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => setShowReviewsOnly(false)}
+                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Full Details
+                        </button>
+                        <button onClick={() => {
+                          setSelectedVendor(null);
+                          setShowReviewsOnly(false);
+                          setMapZoom(13);
+                        }} className="p-2 hover:bg-gray-100 rounded-lg">
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <span className="flex items-center">
+                        <Star className="w-4 h-4 mr-1 fill-yellow-400 text-yellow-400" />
+                        {selectedVendor.rating} average rating
+                      </span>
+                      <span className="flex items-center">
+                        <MessageCircle className="w-4 h-4 mr-1" />
+                        {selectedVendor.reviews?.length || 0} reviews
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 md:p-6">
+                    <div className="space-y-4">
+                      {selectedVendor.reviews && selectedVendor.reviews.length > 0 ? (
+                        selectedVendor.reviews.slice().reverse().map((review, index) => (
+                          <div key={review.id || index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                                  {review.userName.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-gray-800">{review.userName}</p>
+                                  <div className="flex items-center gap-1">
+                                    {[...Array(5)].map((_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`w-4 h-4 ${
+                                          i < review.rating
+                                            ? 'fill-yellow-400 text-yellow-400'
+                                            : 'text-gray-300'
+                                        }`}
+                                      />
+                                    ))}
+                                    <span className="text-sm text-gray-600 ml-1">({review.rating}/5)</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-xs text-gray-500">{review.date}</span>
+                            </div>
+                            {review.text && (
+                              <p className="text-gray-700 text-sm leading-relaxed">{review.text}</p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                          <h4 className="text-lg font-semibold mb-2">No Reviews Yet</h4>
+                          <p className="text-sm">Be the first to leave a review!</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ) : (
                 // Full vendor details view
                 <div className="flex-1 flex flex-col">
@@ -1811,10 +1906,17 @@ const App = () => {
                               <Star className="w-3 md:w-4 h-3 md:h-4 mr-1 fill-yellow-400 text-yellow-400" />
                               {vendor.rating}
                             </span>
-                            <span className="flex items-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReviewsOnlyView(vendor);
+                              }}
+                              className="flex items-center hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors"
+                              title="View Reviews"
+                            >
                               <MessageCircle className="w-3 md:w-4 h-3 md:h-4 mr-1" />
                               {vendor.reviews?.length || 0} reviews
-                            </span>
+                            </button>
                             {vendor.speed > 5 && (
                               <span className="flex items-center text-blue-600">
                                 <TrendingUp className="w-3 md:w-4 h-3 md:h-4 mr-1" />
