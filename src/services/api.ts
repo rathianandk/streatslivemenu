@@ -25,7 +25,7 @@ export interface ApiVendor {
   vendorType?: 'truck' | 'pushcart' | 'stall';
   isStationary?: boolean;
   hasFixedAddress?: boolean;
-  locationMarkedAt?: number;
+  isOnline?: boolean;
 }
 
 export interface ApiDish {
@@ -88,6 +88,12 @@ class ApiService {
     return this.request<{ message: string }>(`/vendors/${id}`, {
       method: 'PUT',
       body: JSON.stringify(vendor),
+    });
+  }
+
+  async deleteVendor(id: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/vendors/${id}`, {
+      method: 'DELETE',
     });
   }
 

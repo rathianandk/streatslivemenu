@@ -46,8 +46,8 @@ interface Vendor {
   // Hybrid Location Model properties
   vendorType: 'truck' | 'pushcart' | 'stall'; // Different vendor types
   isStationary: boolean; // True for push carts, false for trucks
-  locationMarkedAt?: number; // Timestamp when vendor marked their spot
   hasFixedAddress: boolean; // False for address-less push carts
+  isOnline: boolean; // Controlled by "Go Live Now" button
 }
 
 interface User {
@@ -543,7 +543,7 @@ const AddVendorModal = ({ onClose, onAddVendor }: AddVendorModalProps) => {
       vendorType: newVendor.vendorType,
       isStationary: isStationary,
       hasFixedAddress: hasFixedAddress,
-      locationMarkedAt: newVendor.vendorType === 'pushcart' ? Date.now() : undefined
+      isOnline: false // New vendors start offline
     };
     
     onAddVendor(vendor);
@@ -944,7 +944,7 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
   const [activeTab, setActiveTab] = useState('menu');
   const [showMenuBuilder, setShowMenuBuilder] = useState(false);
   const [showMarkMySpot, setShowMarkMySpot] = useState(false);
-  const [showLiveNotification, setShowLiveNotification] = useState(false);
+
 
   const handleMarkLocation = (lat: number, lng: number, openUntil: string) => {
     const updatedVendor = {
@@ -954,19 +954,13 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
         lat,
         lng
       },
-      locationMarkedAt: Date.now(),
       openUntil: openUntil, // Store operating hours
       isStationary: true,
       vendorType: currentVendor.vendorType || 'pushcart', // Preserve vendor type
-      hasFixedAddress: currentVendor.hasFixedAddress || false // Preserve fixed address status
+      hasFixedAddress: currentVendor.hasFixedAddress || false, // Preserve fixed address status
+      isOnline: true // Set online when "Go Live Now" is clicked
     };
     onUpdateVendor(updatedVendor);
-    
-    // Show cool "You are live now!" notification
-    setShowLiveNotification(true);
-    setTimeout(() => {
-      setShowLiveNotification(false);
-    }, 4000); // Hide after 4 seconds
   };
 
   return (
@@ -986,30 +980,7 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
           onMarkLocation={handleMarkLocation}
         />
       )}
-      
-      {/* Cool "You are live now!" notification */}
-      {showLiveNotification && (
-        <div className="fixed top-4 right-4 z-50 animate-bounce">
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-2xl shadow-2xl border-2 border-green-300 transform transition-all duration-500 hover:scale-105">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping"></div>
-              </div>
-              <div>
-                <div className="font-bold text-lg flex items-center gap-2">
-                  🎉 You are LIVE now!
-                </div>
-                <div className="text-sm text-green-100">
-                  Customers can find you at your marked location
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1039,30 +1010,18 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
               </button>
               
               <div className={`flex items-center gap-2 text-xs md:text-sm px-3 py-2 rounded-full ${
-                currentVendor?.locationMarkedAt 
+                currentVendor?.isOnline 
                   ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg border-2 border-green-300' 
-                  : Date.now() - currentVendor?.lastSeen < 30000 
-                    ? 'bg-green-100 text-green-700' 
-                    : currentVendor?.locationMarkedAt !== undefined 
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-600'
+                  : 'bg-gray-100 text-gray-600'
               }`}>
                 <div className={`w-2 h-2 rounded-full ${
-                  currentVendor?.locationMarkedAt 
+                  currentVendor?.isOnline 
                     ? 'bg-white animate-pulse' 
-                    : Date.now() - currentVendor?.lastSeen < 30000 
-                      ? 'bg-green-500 animate-pulse' 
-                      : currentVendor?.locationMarkedAt !== undefined
-                        ? 'bg-green-500 animate-pulse'
-                        : 'bg-gray-400'
+                    : 'bg-gray-400'
                 }`}></div>
-                {currentVendor?.locationMarkedAt 
-                  ? '🔴 LIVE NOW' 
-                  : Date.now() - currentVendor?.lastSeen < 30000 
-                    ? 'Live & Online' 
-                    : currentVendor?.locationMarkedAt !== undefined
-                      ? 'Online'
-                      : 'Offline'}
+                {currentVendor?.isOnline 
+                  ? 'Online' 
+                  : 'Offline'}
               </div>
             </div>
           </div>
@@ -1209,9 +1168,7 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
                     <h2 className="text-2xl font-bold">Vendor Location</h2>
                   </div>
                   <p className="text-purple-100 mb-2">
-                    {currentVendor?.locationMarkedAt 
-                      ? `Last updated: ${new Date(currentVendor.locationMarkedAt).toLocaleString()}`
-                      : 'Set your location to help customers find you!'}
+                    Set your location to help customers find you!
                   </p>
                   <p className="text-sm text-purple-200">
                     Tap "Mark My Spot" when you're ready to serve customers at your current location.
@@ -1225,18 +1182,7 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
                   Mark My Spot
                 </button>
               </div>
-              
-              {currentVendor?.locationMarkedAt && (
-                <div className="mt-4 bg-white/10 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span>Location Active - Customers can find you!</span>
-                  </div>
-                  <div className="text-xs text-purple-200 mt-1">
-                    Lat: {currentVendor.location.lat.toFixed(6)}, Lng: {currentVendor.location.lng.toFixed(6)}
-                  </div>
-                </div>
-              )}
+
             </div>
             
             {/* Location Tracking Stats */}
@@ -1269,7 +1215,7 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-gray-900">
                     {currentVendor?.vendorType === 'pushcart' 
-                      ? (currentVendor?.locationMarkedAt ? '📍' : '❌')
+                      ? (currentVendor?.isOnline ? '📍' : '❌')
                       : `${Math.round(currentVendor?.speed || 0)} km/h`}
                   </div>
                   <div className="text-gray-600">
@@ -1347,6 +1293,8 @@ const App = () => {
   const [connectionStatus, setConnectionStatus] = useState('connected');
   const [showMenuBuilder, setShowMenuBuilder] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [currentVendor, setCurrentVendor] = useState<Vendor | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -1381,11 +1329,16 @@ const App = () => {
           dishes: apiVendor.dishes,
           reviews: apiVendor.reviews,
           // Hybrid Location Model properties
-          vendorType: 'truck' as const, // Default API vendors to trucks
-          isStationary: false, // Trucks are mobile by default
-          hasFixedAddress: true, // API vendors have addresses
-          locationMarkedAt: undefined // Only set when vendor marks their spot
+          vendorType: (apiVendor.vendorType as 'truck' | 'pushcart' | 'stall') || 'truck',
+          isStationary: apiVendor.isStationary || false,
+          hasFixedAddress: apiVendor.hasFixedAddress !== false,
+          isOnline: false // Start offline, controlled by "Go Live Now" button
         }));
+        console.log('🔍 Debug - Main vendors:', convertedVendors.map(v => ({
+          name: v.name,
+          vendorType: v.vendorType,
+          isStationary: v.isStationary
+        })));
         setVendors(convertedVendors);
       } catch (error) {
         console.error('Failed to load vendors:', error);
@@ -1410,11 +1363,16 @@ const App = () => {
             dishes: apiVendor.dishes,
             reviews: apiVendor.reviews,
             // Hybrid Location Model properties
-            vendorType: 'truck' as const, // Default seeded vendors to trucks
-            isStationary: false, // Trucks are mobile by default
-            hasFixedAddress: true, // Seeded vendors have addresses
-            locationMarkedAt: undefined // Only set when vendor marks their spot
+            vendorType: (apiVendor.vendorType as 'truck' | 'pushcart' | 'stall') || 'truck',
+            isStationary: apiVendor.isStationary || false,
+            hasFixedAddress: apiVendor.hasFixedAddress !== false,
+            isOnline: false // Start offline, controlled by "Go Live Now" button
           }));
+          console.log('🔍 Debug - Seeded vendors:', convertedVendors.map(v => ({
+            name: v.name,
+            vendorType: v.vendorType,
+            isStationary: v.isStationary
+          })));
           setVendors(convertedVendors);
         } catch (seedError) {
           console.error('Failed to seed database:', seedError);
@@ -1523,7 +1481,7 @@ const App = () => {
         vendorType: updatedVendor.vendorType,
         isStationary: updatedVendor.isStationary,
         hasFixedAddress: updatedVendor.hasFixedAddress,
-        locationMarkedAt: updatedVendor.locationMarkedAt
+        isOnline: updatedVendor.isOnline
       });
       
       // Update dishes in database if they changed
@@ -1667,7 +1625,7 @@ const App = () => {
         vendorType: 'truck', // Default to truck for API vendors
         isStationary: false, // Trucks are mobile by default
         hasFixedAddress: true, // API vendors have addresses by default
-        locationMarkedAt: undefined // Only set when vendor marks their spot
+        isOnline: false // New vendors start offline
       };
       
       setVendors([...vendors, convertedVendor]);
@@ -1695,6 +1653,35 @@ const App = () => {
     }
   };
 
+  const handleDeleteVendor = async (vendor: Vendor) => {
+    setVendorToDelete(vendor);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteVendor = async () => {
+    if (!vendorToDelete) return;
+    
+    try {
+      // Call API to delete vendor
+      await apiService.deleteVendor(vendorToDelete.id);
+      
+      // Remove from local state with smooth animation
+      setVendors(vendors.filter(v => v.id !== vendorToDelete.id));
+      
+      // Close modal and reset state
+      setShowDeleteModal(false);
+      setVendorToDelete(null);
+      
+      console.log(`🗑️ Vendor deleted: ${vendorToDelete.name}`);
+    } catch (error) {
+      console.error('Failed to delete vendor:', error);
+      // Still remove from local state if API fails
+      setVendors(vendors.filter(v => v.id !== vendorToDelete.id));
+      setShowDeleteModal(false);
+      setVendorToDelete(null);
+    }
+  };
+
   const filteredVendors = vendors.filter(vendor => 
     vendor.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -1715,7 +1702,65 @@ const App = () => {
 
   if (currentView === 'vendor-login') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center p-4">
+      <>
+        {/* Cool Delete Confirmation Modal */}
+        {showDeleteModal && vendorToDelete && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all duration-300 scale-100">
+              <div className="p-6">
+                <div className="text-center mb-6">
+                  <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                    <Trash2 className="w-8 h-8 text-red-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Vendor</h3>
+                  <p className="text-gray-600">Are you sure you want to permanently delete this vendor?</p>
+                </div>
+                
+                <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{vendorToDelete.emoji}</span>
+                    <div>
+                      <div className="font-bold text-gray-900">{vendorToDelete.name}</div>
+                      <div className="text-sm text-gray-600">{vendorToDelete.cuisine} • {vendorToDelete.dishes?.length || 0} dishes</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-white text-xs font-bold">!</span>
+                    </div>
+                    <div className="text-sm text-red-800">
+                      <strong>Warning:</strong> This will permanently delete all vendor data, including menu items and reviews. This action cannot be undone.
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setVendorToDelete(null);
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDeleteVendor}
+                    className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Forever
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="min-h-screen bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center p-4">
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl max-w-md w-full">
           <div className="text-center mb-6 md:mb-8">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
@@ -1727,31 +1772,42 @@ const App = () => {
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-700 mb-4">Select Your Food Truck:</h3>
             {vendors.map(vendor => (
-              <button
+              <div
                 key={vendor.id}
-                onClick={() => handleVendorLogin(vendor.id)}
-                className="w-full text-left p-4 border border-gray-200 rounded-xl hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 hover:shadow-md"
+                className="w-full text-left p-4 border border-gray-200 rounded-xl hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 hover:shadow-md cursor-pointer"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center">
+                  <div className="flex items-center flex-1" onClick={() => handleVendorLogin(vendor.id)}>
                     <span className="text-2xl md:text-3xl mr-3 md:mr-4">{vendor.emoji}</span>
                     <div>
                       <div className="font-bold text-gray-900 text-sm md:text-base">{vendor.name}</div>
                       <div className="text-xs md:text-sm text-gray-600">{vendor.cuisine} • {vendor.dishes?.length || 0} dishes</div>
                     </div>
                   </div>
-                  <div className="text-right text-xs text-gray-500">
-                    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${
-                      Date.now() - vendor.lastSeen < 30000 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      <div className={`w-2 h-2 rounded-full ${
-                        Date.now() - vendor.lastSeen < 30000 ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-                      }`}></div>
-                      {Date.now() - vendor.lastSeen < 30000 ? 'Live' : 'Offline'}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right text-xs text-gray-500">
+                      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${
+                        Date.now() - vendor.lastSeen < 30000 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        <div className={`w-2 h-2 rounded-full ${
+                          Date.now() - vendor.lastSeen < 30000 ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                        }`}></div>
+                        {Date.now() - vendor.lastSeen < 30000 ? 'Live' : 'Offline'}
+                      </div>
                     </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteVendor(vendor);
+                      }}
+                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 group"
+                      title="Delete Vendor"
+                    >
+                      <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    </button>
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
           
@@ -1764,7 +1820,8 @@ const App = () => {
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -1931,7 +1988,7 @@ const App = () => {
           />
         </div>
 
-        <div className="w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col max-h-96 lg:max-h-none overflow-hidden">
+        <div className="w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col max-h-96 lg:max-h-none overflow-y-auto">
           {selectedVendor ? (
             <div className="flex-1 flex flex-col">
               {showMenuOnly ? (
@@ -2332,14 +2389,12 @@ const App = () => {
               </div>
               <div className="space-y-3 md:space-y-4">
                 {filteredVendors.map(vendor => {
-                  const isOnline = Date.now() - vendor.lastSeen < 30000;
+                  const isOnline = vendor.isOnline; // Controlled by "Go Live Now" button
                   const isArrived = isOnline && vendor.speed <= 2;
-                  
-                  const isLiveNow = vendor.locationMarkedAt && Date.now() - vendor.locationMarkedAt < 3600000; // Live for 1 hour after marking
                   
                   return (
                     <div key={vendor.id} className={`cursor-pointer rounded-xl md:rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border ${
-                      isLiveNow 
+                      vendor.isOnline 
                         ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-green-100' 
                         : 'bg-white border-gray-100'
                     }`} onClick={() => handleVendorSelect(vendor)}>
@@ -2349,7 +2404,7 @@ const App = () => {
                             <div className="flex items-center gap-2 mb-2">
                               <h3 className="text-lg md:text-xl font-bold text-gray-900">{vendor.name}</h3>
                               <div className={`w-2 h-2 rounded-full ${
-                                isLiveNow 
+                                vendor.isOnline 
                                   ? 'bg-green-500 animate-pulse' 
                                   : isArrived 
                                     ? 'bg-green-500 animate-pulse' 
@@ -2357,7 +2412,7 @@ const App = () => {
                                       ? 'bg-yellow-500' 
                                       : 'bg-gray-400'
                               }`}></div>
-                              {isLiveNow ? (
+                              {vendor.isOnline ? (
                                 <div className="text-xs bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-1 rounded-full font-medium shadow-sm">
                                   🔴 LIVE NOW
                                 </div>

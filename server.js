@@ -36,7 +36,7 @@ db.serialize(() => {
     vendorType TEXT DEFAULT 'truck',
     isStationary BOOLEAN DEFAULT 0,
     hasFixedAddress BOOLEAN DEFAULT 1,
-    locationMarkedAt INTEGER,
+    isOnline BOOLEAN DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
@@ -59,9 +59,9 @@ db.serialize(() => {
     }
   });
   
-  db.run(`ALTER TABLE vendors ADD COLUMN locationMarkedAt INTEGER`, (err) => {
+  db.run(`ALTER TABLE vendors ADD COLUMN isOnline BOOLEAN DEFAULT 0`, (err) => {
     if (err && !err.message.includes('duplicate column')) {
-      console.error('Migration error for locationMarkedAt:', err.message);
+      console.error('Migration error for isOnline:', err.message);
     }
   });
   
@@ -198,11 +198,11 @@ app.post('/api/vendors', (req, res) => {
 // Update vendor
 app.put('/api/vendors/:id', (req, res) => {
   const { id } = req.params;
-  const { name, description, cuisine, emoji, rating, location, vendorType, isStationary, hasFixedAddress, locationMarkedAt, openUntil } = req.body;
+  const { name, description, cuisine, emoji, rating, location, vendorType, isStationary, hasFixedAddress, isOnline, openUntil } = req.body;
   
   const query = `UPDATE vendors SET name = ?, description = ?, cuisine = ?, emoji = ?, rating = ?, 
                  lat = ?, lng = ?, address = ?, vendorType = ?, isStationary = ?, hasFixedAddress = ?, 
-                 locationMarkedAt = ?, openUntil = ?, lastSeen = ? WHERE id = ?`;
+                 isOnline = ?, openUntil = ?, lastSeen = ? WHERE id = ?`;
   
   db.run(query, [
     name, description, cuisine, emoji, rating,
@@ -210,7 +210,7 @@ app.put('/api/vendors/:id', (req, res) => {
     vendorType || 'truck', 
     isStationary ? 1 : 0, 
     hasFixedAddress ? 1 : 0,
-    locationMarkedAt || null,
+    isOnline ? 1 : 0,
     openUntil || null,
     Date.now(),
     id
@@ -221,6 +221,42 @@ app.put('/api/vendors/:id', (req, res) => {
     }
     
     res.json({ message: 'Vendor updated successfully' });
+  });
+});
+
+// Delete vendor
+app.delete('/api/vendors/:id', (req, res) => {
+  const { id } = req.params;
+  
+  // First delete all associated dishes
+  db.run('DELETE FROM dishes WHERE vendor_id = ?', [id], function(err) {
+    if (err) {
+      res.status(500).json({ error: 'Failed to delete vendor dishes: ' + err.message });
+      return;
+    }
+    
+    // Then delete all associated reviews
+    db.run('DELETE FROM reviews WHERE vendor_id = ?', [id], function(err) {
+      if (err) {
+        res.status(500).json({ error: 'Failed to delete vendor reviews: ' + err.message });
+        return;
+      }
+      
+      // Finally delete the vendor
+      db.run('DELETE FROM vendors WHERE id = ?', [id], function(err) {
+        if (err) {
+          res.status(500).json({ error: 'Failed to delete vendor: ' + err.message });
+          return;
+        }
+        
+        if (this.changes === 0) {
+          res.status(404).json({ error: 'Vendor not found' });
+          return;
+        }
+        
+        res.json({ message: 'Vendor deleted successfully' });
+      });
+    });
   });
 });
 
@@ -361,7 +397,7 @@ app.post('/api/seed', (req, res) => {
       vendorType: "pushcart",
       isStationary: true,
       hasFixedAddress: false,
-      locationMarkedAt: Date.now() - 3600000 // Marked 1 hour ago
+      isOnline: false // Start offline
     },
     {
       name: "Fruit Cart Express",
@@ -375,7 +411,7 @@ app.post('/api/seed', (req, res) => {
       vendorType: "pushcart",
       isStationary: true,
       hasFixedAddress: false,
-      locationMarkedAt: Date.now() - 1800000 // Marked 30 min ago
+      isOnline: false // Start offline
     },
     {
       name: "Dosa Corner",
@@ -389,7 +425,7 @@ app.post('/api/seed', (req, res) => {
       vendorType: "pushcart",
       isStationary: true,
       hasFixedAddress: false,
-      locationMarkedAt: Date.now() - 7200000 // Marked 2 hours ago
+      isOnline: false // Start offline
     },
     // FOOD STALLS (Fixed locations)
     {
@@ -421,14 +457,14 @@ app.post('/api/seed', (req, res) => {
   ];
 
   seedVendors.forEach((vendor, index) => {
-    const query = `INSERT OR IGNORE INTO vendors (id, name, description, cuisine, emoji, rating, lat, lng, address, lastSeen, vendorType, isStationary, hasFixedAddress, locationMarkedAt)
+    const query = `INSERT OR IGNORE INTO vendors (id, name, description, cuisine, emoji, rating, lat, lng, address, lastSeen, vendorType, isStationary, hasFixedAddress, isOnline)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     
     db.run(query, [
       index + 1, vendor.name, vendor.description, vendor.cuisine, vendor.emoji,
       vendor.rating, vendor.lat, vendor.lng, vendor.address, Date.now(),
       vendor.vendorType || 'truck', vendor.isStationary || false, 
-      vendor.hasFixedAddress !== false, vendor.locationMarkedAt || null
+      vendor.hasFixedAddress !== false, vendor.isOnline || false
     ]);
   });
 
@@ -457,9 +493,10 @@ app.listen(PORT, () => {
 
 // Graceful shutdown
 process.on('SIGINT', () => {
+  console.log('\n🛑 Shutting down server...');
   db.close((err) => {
     if (err) {
-      console.error(err.message);
+      console.error('Error closing database:', err.message);
     }
     console.log('Database connection closed.');
     process.exit(0);
