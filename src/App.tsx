@@ -1009,6 +1009,23 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
                 <span className="sm:hidden">📍</span>
               </button>
               
+              {/* Go Offline button - only show when online */}
+              {currentVendor?.isOnline && (
+                <button
+                  onClick={() => {
+                    const updatedVendor = {
+                      ...currentVendor,
+                      isOnline: false
+                    };
+                    onUpdateVendor(updatedVendor);
+                  }}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                >
+                  <span className="hidden sm:inline">Go Offline</span>
+                  <span className="sm:hidden">🔴</span>
+                </button>
+              )}
+              
               <div className={`flex items-center gap-2 text-xs md:text-sm px-3 py-2 rounded-full ${
                 currentVendor?.isOnline 
                   ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg border-2 border-green-300' 
@@ -1332,13 +1349,16 @@ const App = () => {
           vendorType: (apiVendor.vendorType as 'truck' | 'pushcart' | 'stall') || 'truck',
           isStationary: apiVendor.isStationary || false,
           hasFixedAddress: apiVendor.hasFixedAddress !== false,
-          isOnline: false // Start offline, controlled by "Go Live Now" button
+          isOnline: Boolean(apiVendor.isOnline) // Convert database value (0/1) to boolean, controlled by "Go Live Now" button
         }));
         console.log('🔍 Debug - Main vendors:', convertedVendors.map(v => ({
           name: v.name,
           vendorType: v.vendorType,
-          isStationary: v.isStationary
+          isStationary: v.isStationary,
+          isOnline: v.isOnline
         })));
+        console.log('🔍 Debug - Raw API vendors isOnline:', apiVendors.map(v => ({ name: v.name, isOnline: v.isOnline, type: typeof v.isOnline, converted: Boolean(v.isOnline) })));
+        console.log('🔍 Debug - Converted vendors isOnline:', convertedVendors.map(v => ({ name: v.name, isOnline: v.isOnline, type: typeof v.isOnline })));
         setVendors(convertedVendors);
       } catch (error) {
         console.error('Failed to load vendors:', error);
@@ -1366,7 +1386,7 @@ const App = () => {
             vendorType: (apiVendor.vendorType as 'truck' | 'pushcart' | 'stall') || 'truck',
             isStationary: apiVendor.isStationary || false,
             hasFixedAddress: apiVendor.hasFixedAddress !== false,
-            isOnline: false // Start offline, controlled by "Go Live Now" button
+            isOnline: Boolean(apiVendor.isOnline) // Convert database value (0/1) to boolean, controlled by "Go Live Now" button
           }));
           console.log('🔍 Debug - Seeded vendors:', convertedVendors.map(v => ({
             name: v.name,
@@ -1771,7 +1791,9 @@ const App = () => {
           
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-700 mb-4">Select Your Food Truck:</h3>
-            {vendors.map(vendor => (
+            {vendors.map(vendor => {
+              console.log(`🔍 Vendor Hub - ${vendor.name}: isOnline=${vendor.isOnline}, type=${typeof vendor.isOnline}`);
+              return (
               <div
                 key={vendor.id}
                 className="w-full text-left p-4 border border-gray-200 rounded-xl hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 hover:shadow-md cursor-pointer"
@@ -1787,12 +1809,12 @@ const App = () => {
                   <div className="flex items-center gap-3">
                     <div className="text-right text-xs text-gray-500">
                       <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${
-                        Date.now() - vendor.lastSeen < 30000 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                        vendor.isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                       }`}>
                         <div className={`w-2 h-2 rounded-full ${
-                          Date.now() - vendor.lastSeen < 30000 ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                          vendor.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
                         }`}></div>
-                        {Date.now() - vendor.lastSeen < 30000 ? 'Live' : 'Offline'}
+                        {vendor.isOnline ? 'Online' : 'Offline'}
                       </div>
                     </div>
                     <button
@@ -1808,7 +1830,8 @@ const App = () => {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           
           <div className="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-gray-200">
