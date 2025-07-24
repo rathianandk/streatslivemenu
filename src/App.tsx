@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Plus, MapPin, Menu, User, Navigation, ArrowLeft, Edit, Trash2, Save, X, Clock, Star, Filter, ZoomIn, ZoomOut, Target, Timer, Utensils, DollarSign, TrendingUp, RadioIcon, Globe, Play, Pause, MessageCircle, Send, StarIcon } from 'lucide-react';
+import { LoadScript } from '@react-google-maps/api';
 import { apiService, ApiVendor } from './services/api';
 import GoogleMapComponent from './components/GoogleMap';
 
@@ -1438,11 +1439,13 @@ const App = () => {
     setSimulationActive(isActive);
   };
 
-  const handleVendorSelect = (vendor: Vendor) => {
+  const handleVendorSelect = (vendor: Vendor | null) => {
     setSelectedVendor(vendor);
     setShowMenuOnly(false);
     setShowReviewsOnly(false);
-    setMapZoom(16);
+    if (vendor) {
+      setMapZoom(16);
+    }
   };
 
   const handleMenuOnlyView = (vendor: Vendor) => {
@@ -1791,9 +1794,7 @@ const App = () => {
           
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-700 mb-4">Select Your Food Truck:</h3>
-            {vendors.map(vendor => {
-              console.log(`🔍 Vendor Hub - ${vendor.name}: isOnline=${vendor.isOnline}, type=${typeof vendor.isOnline}`);
-              return (
+            {vendors.map(vendor => (
               <div
                 key={vendor.id}
                 className="w-full text-left p-4 border border-gray-200 rounded-xl hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 hover:shadow-md cursor-pointer"
@@ -1830,8 +1831,7 @@ const App = () => {
                   </div>
                 </div>
               </div>
-              );
-            })}
+            ))}
           </div>
           
           <div className="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-gray-200">
@@ -1999,16 +1999,18 @@ const App = () => {
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         <div className="flex-1 h-80 lg:h-auto min-h-80 lg:min-h-0">
-          <GoogleMapComponent
-            vendors={filteredVendors}
-            selectedVendor={selectedVendor}
-            onVendorSelect={handleVendorSelect}
-            zoom={mapZoom}
-            onZoomChange={setMapZoom}
-            lat={37.7749}
-            lng={-122.4194}
-            userLocation={{ lat: 37.7749, lng: -122.4194 }}
-          />
+          <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ''}>
+            <GoogleMapComponent
+              vendors={filteredVendors}
+              selectedVendor={selectedVendor}
+              onVendorSelect={handleVendorSelect}
+              zoom={mapZoom}
+              onZoomChange={setMapZoom}
+              lat={37.7749}
+              lng={-122.4194}
+              userLocation={{ lat: 37.7749, lng: -122.4194 }}
+            />
+          </LoadScript>
         </div>
 
         <div className="w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col max-h-96 lg:max-h-none overflow-y-auto">
