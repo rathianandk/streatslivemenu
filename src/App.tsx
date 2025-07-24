@@ -569,7 +569,7 @@ const AddVendorModal = ({ onClose, onAddVendor }: AddVendorModalProps) => {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-lg md:text-xl font-bold">Add New {currentVendorType?.label || 'Vendor'}</h2>
-              <p className="opacity-90 text-sm md:text-base">Join the StreetEats network</p>
+              <p className="opacity-90 text-sm md:text-base">Join the sTrEATs Live network</p>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg">
               <X className="w-5 h-5" />
@@ -977,7 +977,7 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack, addNotificatio
     // Add notification when vendor goes live
     addNotification({
       title: '🎉 Vendor Now Live!',
-      message: `${currentVendor?.name} is now serving customers until ${openUntil}`,
+      message: `${currentVendor?.name} sTrEATs Live until ${openUntil}`,
       type: 'success',
       vendorId: currentVendor?.id,
       vendorName: currentVendor?.name
@@ -1858,7 +1858,7 @@ const App = () => {
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl max-w-md w-full">
           <div className="text-center mb-6 md:mb-8">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-              🚚 <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">StreetEats Pro</span>
+              🚚 <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">sTrEATs</span> <span className="bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">Live</span>
             </h1>
             <p className="text-gray-600 text-sm md:text-base">Vendor Dashboard • Menu Management & Live Tracking</p>
           </div>
@@ -1949,7 +1949,7 @@ const App = () => {
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center py-4 gap-4">
             <div className="flex items-center gap-2 md:gap-4 flex-wrap">
               <h1 className="text-xl md:text-3xl font-bold text-gray-900">
-                🚚 <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">StreetEats Live</span>
+                🚚 <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">sTrEATs</span> <span className="bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">Live</span>
               </h1>
               <div className="text-xs md:text-sm text-gray-500">Hackathon Edition</div>
               <div className={`flex items-center gap-2 text-xs px-2 md:px-3 py-1 rounded-full ${
