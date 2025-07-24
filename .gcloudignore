@@ -4,8 +4,8 @@ npm-debug.log
 yarn-error.log
 
 # Development files
-src/
-public/
+# src/ - KEEP for React build
+# public/ - KEEP for React build
 .env.local
 .env.development.local
 .env.test.local
