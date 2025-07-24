@@ -485,20 +485,19 @@ app.post('/api/seed', (req, res) => {
   res.json({ message: 'Database seeded successfully' });
 });
 
-// Serve React build files in production
-if (process.env.NODE_ENV === 'production') {
-  // Serve static files from React build
-  app.use(express.static(path.join(__dirname, 'build')));
-  
-  // Handle React routing - serve index.html for all non-API routes
-  app.get('*', (req, res) => {
-    // Don't serve index.html for API routes
-    if (req.path.startsWith('/api/')) {
-      return res.status(404).json({ error: 'API endpoint not found' });
-    }
-    res.sendFile(path.join(__dirname, 'build', 'index.html'));
-  });
-}
+// Serve React build files (both development and production)
+// Serve static files from React build
+app.use(express.static(path.join(__dirname, 'build')));
+
+// Handle React routing - serve index.html for all non-API routes
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+// Catch-all handler for React Router
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
 
 // Start server
 app.listen(PORT, () => {

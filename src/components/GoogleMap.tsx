@@ -105,7 +105,7 @@ const GoogleMapComponent: React.FC<GoogleMapProps> = ({
           ? '#2563eb' // blue-600
           : '#6b7280'; // gray-500
     
-    const scale = isSelected ? 12 : 10;
+    const scale = isSelected ? 16 : 14;
     
     return {
       path: window.google.maps.SymbolPath.CIRCLE,
@@ -116,6 +116,34 @@ const GoogleMapComponent: React.FC<GoogleMapProps> = ({
       strokeWeight: 2,
       labelOrigin: new window.google.maps.Point(0, 0)
     };
+  };
+
+  // Function to spread out overlapping markers
+  const getAdjustedPosition = (vendor: Vendor, index: number, allVendors: Vendor[]) => {
+    const basePosition = vendor.location;
+    const minDistance = 0.003; // Minimum distance between markers (roughly 300m)
+    
+    // Check for overlaps with previous vendors
+    let adjustedLat = basePosition.lat;
+    let adjustedLng = basePosition.lng;
+    
+    for (let i = 0; i < index; i++) {
+      const otherVendor = allVendors[i];
+      const distance = Math.sqrt(
+        Math.pow(adjustedLat - otherVendor.location.lat, 2) + 
+        Math.pow(adjustedLng - otherVendor.location.lng, 2)
+      );
+      
+      if (distance < minDistance) {
+        // Spread markers in a circular pattern around the original position
+        const angle = (index * 60) * (Math.PI / 180); // 60 degrees apart
+        const offset = minDistance * 1.5;
+        adjustedLat = basePosition.lat + Math.cos(angle) * offset;
+        adjustedLng = basePosition.lng + Math.sin(angle) * offset;
+      }
+    }
+    
+    return { lat: adjustedLat, lng: adjustedLng };
   };
 
   // Better positioning to ensure trucks are visible
@@ -163,7 +191,7 @@ const GoogleMapComponent: React.FC<GoogleMapProps> = ({
             position={center}
             icon={{
               path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 8,
+              scale: 12,
               fillColor: '#2563eb',
               fillOpacity: 1,
               strokeColor: 'white',
@@ -178,11 +206,12 @@ const GoogleMapComponent: React.FC<GoogleMapProps> = ({
             const isSelected = selectedVendor?.id === vendor.id;
             const isOnline = vendor.isOnline;
             const isArrived = isOnline && vendor.speed <= 2;
+            const adjustedPosition = getAdjustedPosition(vendor, index, vendors);
             
             return (
               <Marker
                 key={vendor.id}
-                position={vendor.location}
+                position={adjustedPosition}
                 icon={createTruckIcon(vendor, isSelected)}
                 label={{
                   text: '🚚',

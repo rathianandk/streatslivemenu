@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, MapPin, Menu, User, Navigation, ArrowLeft, Edit, Trash2, Save, X, Clock, Star, Filter, ZoomIn, ZoomOut, Target, Timer, Utensils, DollarSign, TrendingUp, RadioIcon, Globe, Play, Pause, MessageCircle, Send, StarIcon } from 'lucide-react';
+import { Search, Plus, MapPin, Menu, User, Navigation, ArrowLeft, Edit, Trash2, Save, X, Clock, Star, Filter, ZoomIn, ZoomOut, Target, Timer, Utensils, DollarSign, TrendingUp, RadioIcon, Globe, Play, Pause, MessageCircle, Send, StarIcon, Bell } from 'lucide-react';
 import { LoadScript } from '@react-google-maps/api';
 import { apiService, ApiVendor } from './services/api';
 import GoogleMapComponent from './components/GoogleMap';
@@ -55,6 +55,17 @@ interface User {
   id: number;
   name: string;
   email: string;
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'success' | 'info' | 'warning' | 'error';
+  timestamp: Date;
+  read: boolean;
+  vendorId?: number;
+  vendorName?: string;
 }
 
 // Mock Location Service
@@ -939,9 +950,10 @@ interface VendorDashboardProps {
   currentVendor: Vendor;
   onUpdateVendor: (vendor: Vendor) => void;
   onBack: () => void;
+  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
 }
 
-const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashboardProps) => {
+const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack, addNotification }: VendorDashboardProps) => {
   const [activeTab, setActiveTab] = useState('menu');
   const [showMenuBuilder, setShowMenuBuilder] = useState(false);
   const [showMarkMySpot, setShowMarkMySpot] = useState(false);
@@ -961,6 +973,16 @@ const VendorDashboard = ({ currentVendor, onUpdateVendor, onBack }: VendorDashbo
       hasFixedAddress: currentVendor.hasFixedAddress || false, // Preserve fixed address status
       isOnline: true // Set online when "Go Live Now" is clicked
     };
+    
+    // Add notification when vendor goes live
+    addNotification({
+      title: '🎉 Vendor Now Live!',
+      message: `${currentVendor?.name} is now serving customers until ${openUntil}`,
+      type: 'success',
+      vendorId: currentVendor?.id,
+      vendorName: currentVendor?.name
+    });
+    
     onUpdateVendor(updatedVendor);
   };
 
@@ -1319,10 +1341,45 @@ const App = () => {
   const [cartQuantities, setCartQuantities] = useState<{[dishId: number]: number}>({});
   const [isVendorMode, setIsVendorMode] = useState(true);
   
+  // Notification system state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [toastNotification, setToastNotification] = useState<Notification | null>(null);
+  
   const locationServiceRef = useRef(new LocationService());
   
   // Load vendors from SQLite database
   const [vendors, setVendors] = useState<Vendor[]>([]);
+
+  // Notification helper functions
+  const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+    const newNotification: Notification = {
+      ...notification,
+      id: Date.now().toString(),
+      timestamp: new Date(),
+      read: false
+    };
+    
+    setNotifications(prev => [newNotification, ...prev]);
+    setToastNotification(newNotification);
+    
+    // Auto-hide toast after 5 seconds
+    setTimeout(() => {
+      setToastNotification(null);
+    }, 5000);
+  };
+
+  const markNotificationAsRead = (id: string) => {
+    setNotifications(prev => 
+      prev.map(notif => 
+        notif.id === id ? { ...notif, read: true } : notif
+      )
+    );
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+  };
 
   // Load vendors from database on component mount
   useEffect(() => {
@@ -1415,6 +1472,19 @@ const App = () => {
     
     return () => { unsubscribe(); };
   }, []);
+
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (showNotifications && !target.closest('.notification-dropdown')) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotifications]);
 
   const updateVendorLocation = (vendorId: number, location: { lat: number; lng: number; heading: number; speed: number; accuracy: number }) => {
     setVendors(prevVendors => 
@@ -1714,6 +1784,7 @@ const App = () => {
       <VendorDashboard
         currentVendor={currentVendor}
         onUpdateVendor={handleUpdateVendor}
+        addNotification={addNotification}
         onBack={() => {
           setCurrentView('landing');
           setCurrentUser(null);
@@ -1896,20 +1967,90 @@ const App = () => {
               </div>
             </div>
             
-            <div className="flex-1 lg:max-w-lg lg:mx-8">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search food trucks..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
+            {/* Search Input - Hidden in Vendor Mode */}
+            {!isVendorMode && (
+              <div className="flex-1 lg:max-w-lg lg:mx-8">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="Search food trucks..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex items-center gap-4">
+              {/* Notification Bell */}
+              <div className="relative notification-dropdown">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <Bell className="w-5 h-5" />
+                  {notifications.filter(n => !n.read).length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                      {notifications.filter(n => !n.read).length}
+                    </span>
+                  )}
+                </button>
+                
+                {/* Notification Dropdown */}
+                {showNotifications && (
+                  <div className="absolute right-0 top-12 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                    <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                      <h3 className="font-semibold text-gray-900">Notifications</h3>
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={clearAllNotifications}
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                          <p>No notifications yet</p>
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                              !notification.read ? 'bg-blue-50' : ''
+                            }`}
+                            onClick={() => markNotificationAsRead(notification.id)}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-gray-900 text-sm">
+                                  {notification.title}
+                                </h4>
+                                <p className="text-gray-600 text-sm mt-1">
+                                  {notification.message}
+                                </p>
+                                <p className="text-gray-400 text-xs mt-2">
+                                  {notification.timestamp.toLocaleTimeString()}
+                                </p>
+                              </div>
+                              {!notification.read && (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* User/Vendor Mode Toggle */}
               <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200">
                 <button
@@ -2275,7 +2416,18 @@ const App = () => {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <button className="flex-1 bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center text-sm md:text-base">
+                      <button 
+                        onClick={() => {
+                          // Open Google Maps with directions to vendor location
+                          const destination = `${selectedVendor.location.lat},${selectedVendor.location.lng}`;
+                          const vendorName = encodeURIComponent(selectedVendor.name);
+                          const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&destination_place_id=${vendorName}`;
+                          
+                          // Always open in new tab/window to preserve the app
+                          window.open(googleMapsUrl, '_blank');
+                        }}
+                        className="flex-1 bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center text-sm md:text-base"
+                      >
                         <Navigation className="w-4 h-4 mr-2" />
                         Get Directions
                       </button>
@@ -2508,6 +2660,55 @@ const App = () => {
           )}
         </div>
       </div>
+      
+      {/* Toast Notification */}
+      {toastNotification && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right duration-300">
+          <div className={`max-w-sm w-full bg-white rounded-lg shadow-lg border-l-4 ${
+            toastNotification.type === 'success' ? 'border-green-500' :
+            toastNotification.type === 'error' ? 'border-red-500' :
+            toastNotification.type === 'warning' ? 'border-yellow-500' :
+            'border-blue-500'
+          } p-4`}>
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                {toastNotification.type === 'success' && (
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  </div>
+                )}
+                {toastNotification.type === 'error' && (
+                  <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
+                    <X className="w-3 h-3 text-red-500" />
+                  </div>
+                )}
+                {toastNotification.type === 'warning' && (
+                  <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  </div>
+                )}
+                {toastNotification.type === 'info' && (
+                  <Bell className="w-6 h-6 text-blue-500" />
+                )}
+              </div>
+              <div className="ml-3 flex-1">
+                <h4 className="text-sm font-medium text-gray-900">
+                  {toastNotification.title}
+                </h4>
+                <p className="text-sm text-gray-600 mt-1">
+                  {toastNotification.message}
+                </p>
+              </div>
+              <button
+                onClick={() => setToastNotification(null)}
+                className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
