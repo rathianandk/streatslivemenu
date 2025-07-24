@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors());
@@ -485,10 +485,26 @@ app.post('/api/seed', (req, res) => {
   res.json({ message: 'Database seeded successfully' });
 });
 
+// Serve React build files in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files from React build
+  app.use(express.static(path.join(__dirname, 'build')));
+  
+  // Handle React routing - serve index.html for all non-API routes
+  app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(__dirname, 'build', 'index.html'));
+  });
+}
+
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 StreetEats API server running on http://localhost:${PORT}`);
+  console.log(`🚀 sTrEATs Live server running on port ${PORT}`);
   console.log(`📊 SQLite database: ${dbPath}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Graceful shutdown

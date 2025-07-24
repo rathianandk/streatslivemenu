@@ -1,0 +1,32 @@
+runtime: nodejs18
+
+env_variables:
+  NODE_ENV: production
+  REACT_APP_GOOGLE_MAPS_API_KEY: AIzaSyDdiy1hXAg5BI4XWCleJxa_S2cssiWHxyQ
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+
+handlers:
+# Serve static files from build directory
+- url: /static
+  static_dir: build/static
+  secure: always
+
+# Serve the React app's static assets
+- url: /(.*\.(js|css|map|ico|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot))$
+  static_files: build/\1
+  upload: build/.*\.(js|css|map|ico|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$
+  secure: always
+
+# API routes
+- url: /api/.*
+  script: auto
+  secure: always
+
+# Serve React app for all other routes (SPA routing)
+- url: /.*
+  static_files: build/index.html
+  upload: build/index.html
+  secure: always

@@ -1,0 +1,44 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Development files
+src/
+public/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build artifacts (keep build/ for production)
+# build/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Testing
+coverage/
+.nyc_output/
+
+# Deployment
+.vercel/
+.netlify/
+
+# Local database (for development)
+*.db-journal
