@@ -58,6 +58,32 @@ const GoogleMapComponent: React.FC<GoogleMapProps> = ({
     height: '100%'
   };
 
+  const mapOptions = {
+    disableDefaultUI: false,
+    zoomControl: true,
+    mapTypeControl: false,
+    scaleControl: false,
+    streetViewControl: false,
+    rotateControl: false,
+    fullscreenControl: true,
+    styles: [
+      {
+        featureType: "poi",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }]
+      },
+      {
+        featureType: "poi.business",
+        stylers: [{ visibility: "off" }]
+      },
+      {
+        featureType: "transit",
+        elementType: "labels.icon",
+        stylers: [{ visibility: "off" }]
+      }
+    ]
+  };
+
   // Center map on vendors if they exist, otherwise use user location
   const center = vendors.length > 0 ? {
     lat: vendors[0].location.lat,
@@ -136,6 +162,7 @@ const GoogleMapComponent: React.FC<GoogleMapProps> = ({
           mapContainerStyle={mapContainerStyle}
           center={center}
           zoom={zoom}
+          options={mapOptions}
           onLoad={onLoad}
           onUnmount={onUnmount}
           onZoomChanged={() => onZoomChange && onZoomChange(zoom)}
