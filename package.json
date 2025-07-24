@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": false,
   "description": "Real-time food truck tracking platform for hackathon submission",
-  "homepage": "https://streatslive.com",
+  "homepage": "https://streatslivemenu.vercel.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/streats-live.git"
+    "url": "https://github.com/rathianandk/streatslivemenu.git"
   },
   "keywords": [
     "food-truck",

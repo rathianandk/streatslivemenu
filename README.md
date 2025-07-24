@@ -1,6 +1,7 @@
-# Getting Started with Create React App
+# 🚚 sTrEATs Live - Real-Time Food Truck Tracking
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+> **🌐 Live Demo: [https://streatslivemenu.vercel.app](https://streatslivemenu.vercel.app)**  
+> **📱 Mobile Responsive | 🗺️ Google Maps Integration | ⚡ Real-Time Updates**
 
 ## Available Scripts
 
