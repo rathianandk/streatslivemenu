@@ -68,17 +68,8 @@ const GoogleMapComponent: React.FC<GoogleMapProps> = ({
     fullscreenControl: true,
     styles: [
       {
-        featureType: "poi",
-        elementType: "labels",
-        stylers: [{ visibility: "off" }]
-      },
-      {
         featureType: "poi.business",
-        stylers: [{ visibility: "off" }]
-      },
-      {
-        featureType: "transit",
-        elementType: "labels.icon",
+        elementType: "labels",
         stylers: [{ visibility: "off" }]
       }
     ]
@@ -162,10 +153,10 @@ const GoogleMapComponent: React.FC<GoogleMapProps> = ({
           mapContainerStyle={mapContainerStyle}
           center={center}
           zoom={zoom}
-          options={mapOptions}
           onLoad={onLoad}
           onUnmount={onUnmount}
           onZoomChanged={() => onZoomChange && onZoomChange(zoom)}
+          options={mapOptions}
         >
           {/* User location marker */}
           <Marker
