@@ -1,7 +1,23 @@
 {
-  "name": "streeteats-app",
-  "version": "0.1.0",
-  "private": true,
+  "name": "streats-live",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Real-time food truck tracking platform for hackathon submission",
+  "homepage": "https://streatslive.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/streats-live.git"
+  },
+  "keywords": [
+    "food-truck",
+    "real-time-tracking",
+    "google-maps",
+    "react",
+    "typescript",
+    "hackathon"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
     "@googlemaps/react-wrapper": "^1.2.0",
     "@react-google-maps/api": "^2.20.7",
@@ -30,7 +46,12 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy": "npm run build && vercel --prod",
+    "deploy:netlify": "npm run build && netlify deploy --prod --dir=build",
+    "preview": "vercel",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write src/**/*.{ts,tsx,css,md}"
   },
   "eslintConfig": {
     "extends": [
