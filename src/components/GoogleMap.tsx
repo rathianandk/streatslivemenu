@@ -214,31 +214,75 @@ const GoogleMapComponent: React.FC<GoogleMapProps> = ({
                 position={adjustedPosition}
                 icon={createTruckIcon(vendor, isSelected)}
                 label={{
-                  text: '🚚',
-                  fontSize: '20px',
-                  fontWeight: 'bold',
-                  color: 'white'
+                  text: '🚚'
                 }}
                 onClick={() => onVendorSelect && onVendorSelect(vendor)}
-                title={`${vendor.name} - ${isOnline ? (isArrived ? 'OPEN NOW' : 'EN ROUTE') : 'OFFLINE'}`}
+                title={`🚚 ${vendor.name} | ${vendor.cuisine} Cuisine | ${isOnline ? (isArrived ? '🟢 OPEN NOW - Ready to serve!' : '🔵 EN ROUTE - Coming your way!') : '⚫ OFFLINE - Currently closed'} | ⭐ ${vendor.rating || 4.5} stars`}
               >
                 {isSelected && (
                   <InfoWindow
                     onCloseClick={() => onVendorSelect && onVendorSelect(null)}
                   >
-                    <div className="p-2">
-                      <div className="font-bold text-gray-900">{vendor.name}</div>
-                      <div className="text-sm text-gray-600">{vendor.cuisine} Cuisine</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Speed: {Math.round(vendor.speed || 0)} km/h
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        ETA: {calculateETA(vendor.location)} min
-                      </div>
-                      <div className={`text-xs font-medium mt-1 ${
-                        isArrived ? 'text-green-600' : isOnline ? 'text-blue-600' : 'text-gray-600'
+                    <div className="p-0 min-w-[280px]">
+                      {/* Header Section */}
+                      <div className={`px-4 py-3 rounded-t-lg ${
+                        isArrived ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+                        : isOnline ? 'bg-gradient-to-r from-blue-500 to-indigo-500' 
+                        : 'bg-gradient-to-r from-gray-400 to-gray-500'
                       }`}>
-                        {isOnline ? (isArrived ? 'OPEN NOW' : 'EN ROUTE') : 'OFFLINE'}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-bold text-white text-lg leading-tight">{vendor.name}</h3>
+                            <p className="text-white/90 text-sm">{vendor.cuisine} Cuisine</p>
+                          </div>
+                          <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            isArrived ? 'bg-white/20 text-white' 
+                            : isOnline ? 'bg-white/20 text-white' 
+                            : 'bg-white/20 text-white'
+                          }`}>
+                            {isOnline ? (isArrived ? '🟢 OPEN NOW' : '🔵 EN ROUTE') : '⚫ OFFLINE'}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Content Section */}
+                      <div className="px-4 py-3 bg-white">
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div className="text-center p-2 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold text-gray-900">{Math.round(vendor.speed || 0)}</div>
+                            <div className="text-xs text-gray-500">km/h</div>
+                          </div>
+                          <div className="text-center p-2 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold text-gray-900">{calculateETA(vendor.location)}</div>
+                            <div className="text-xs text-gray-500">min ETA</div>
+                          </div>
+                        </div>
+                        
+                        {/* Rating and Reviews */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1">
+                            <span className="text-yellow-400">⭐</span>
+                            <span className="font-semibold text-gray-900">{vendor.rating || 4.5}</span>
+                            <span className="text-gray-500 text-sm">({vendor.reviews?.length || 0} reviews)</span>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {vendor.vendorType === 'truck' ? '$$$' : vendor.vendorType === 'pushcart' ? '$' : '$$'}
+                          </div>
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 mt-3">
+                          <button className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                            isOnline 
+                              ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}>
+                            📱 View Menu
+                          </button>
+                          <button className="flex-1 py-2 px-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
+                            🗺️ Directions
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </InfoWindow>

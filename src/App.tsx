@@ -411,24 +411,6 @@ const MarkMySpotModal = ({ onClose, onMarkLocation, vendorName }: MarkMySpotProp
           )}
 
           <div className="space-y-3">
-            <button
-              onClick={getCurrentLocation}
-              disabled={isGettingLocation}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isGettingLocation ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  Getting Location...
-                </>
-              ) : (
-                <>
-                  <Target className="w-5 h-5" />
-                  Get My Location
-                </>
-              )}
-            </button>
-
             {currentLocation && (
               <button
                 onClick={handleMarkSpot}
