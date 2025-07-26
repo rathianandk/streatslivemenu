@@ -136,7 +136,7 @@ sTrEATs Live is a comprehensive **dual-mode platform** that revolutionizes the f
 ## 🚀 Getting Started
 
 ### **Live Demo**
-🌐 **Production**: [https://gen-lang-client-0811007768.uc.r.appspot.com](https://gen-lang-client-0811007768.uc.r.appspot.com)
+🌐 **Production**:[https://streats-dot-gen-lang-client-0811007768.uc.r.appspot.com](https://streats-dot-gen-lang-client-0811007768.uc.r.appspot.com/)
 
 ### **Local Development**
 
