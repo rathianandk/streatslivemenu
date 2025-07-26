@@ -1,6 +1,6 @@
 # 🚚 sTrEATs Live - Real-Time Food Truck Tracking Platform
 
-> **🌐 Live Demo: [https://gen-lang-client-0811007768.uc.r.appspot.com](https://streats-dot-gen-lang-client-0811007768.uc.r.appspot.com/)**  
+> **🌐 Live Demo: [https://streats-dot-gen-lang-client-0811007768.uc.r.appspot.com](https://streats-dot-gen-lang-client-0811007768.uc.r.appspot.com/)**  
 > **📱 Mobile Responsive | 🗺️ Google Maps Integration | ⚡ Real-Time Updates | 🔔 Smart Notifications**
 
 ## 🏆 Hackathon Submission Overview
@@ -73,7 +73,7 @@ sTrEATs Live is a comprehensive **dual-mode platform** that revolutionizes the f
 
 #### 💼 **Vendor Dashboard**
 - **Comprehensive Control Panel**: Manage all aspects of your business
-- **Quick Actions**: Fast access to common tasks (go live, update menu, etc.)
+- **Quick Actions**: Fast access to common tasks (go live, add, update menu, etc.)
 - **Business Analytics**: View customer engagement and reviews
 - **Profile Customization**: Update vendor information and specialties
 
@@ -233,7 +233,6 @@ npm run format       # Format code with Prettier
 - **Real-time Chat**: Direct messaging between customers and vendors
 - **Order Management**: Full ordering and payment system
 - **Analytics Dashboard**: Business insights for vendors
-- **Push Notifications**: Mobile app with push notification support
 - **Social Features**: Customer check-ins and social sharing
 - **Advanced Filtering**: Search by cuisine type, price range, ratings
 - **Loyalty Programs**: Rewards system for frequent customers
@@ -248,13 +247,13 @@ This is a hackathon submission, but we welcome feedback and suggestions for futu
 
 ## 📄 License
 
-MIT License - feel free to use this project as inspiration for your own food truck tracking solutions!
+MIT License 
 
 ---
 
 ## 👨‍💻 Built With ❤️ for the Hackathon
 
-**Team**: Passionate developers solving real-world problems in the food truck industry
+**Team**: Passionate developer solving real-world problems in the food truck industry
 
 **Mission**: Connecting food lovers with their favorite mobile vendors through technology
 
