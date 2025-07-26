@@ -1,6 +1,6 @@
 # 🚚 sTrEATs Live - Real-Time Food Truck Tracking Platform
 
-> **🌐 Live Demo: [https://gen-lang-client-0811007768.uc.r.appspot.com](https://gen-lang-client-0811007768.uc.r.appspot.com)**  
+> **🌐 Live Demo: [https://gen-lang-client-0811007768.uc.r.appspot.com](https://streats-dot-gen-lang-client-0811007768.uc.r.appspot.com/)**  
 > **📱 Mobile Responsive | 🗺️ Google Maps Integration | ⚡ Real-Time Updates | 🔔 Smart Notifications**
 
 ## 🏆 Hackathon Submission Overview
