@@ -100,6 +100,10 @@ class ApiService {
   }
 
   // Dish operations
+  async getDishes(vendorId: number): Promise<ApiDish[]> {
+    return this.request<ApiDish[]>(`/vendors/${vendorId}/dishes`);
+  }
+
   async addDish(vendorId: number, dish: Omit<ApiDish, 'id'>): Promise<ApiDish> {
     return this.request<ApiDish>(`/vendors/${vendorId}/dishes`, {
       method: 'POST',

@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, MapPin, Menu, User, Navigation, ArrowLeft, Edit, Trash2, Save, X, Clock, Star, Filter, ZoomIn, ZoomOut, Target, Timer, Utensils, DollarSign, TrendingUp, RadioIcon, Globe, Play, Pause, MessageCircle, Send, StarIcon, Bell } from 'lucide-react';
+import { Bell, X, MapPin, Star, Clock, Phone, ExternalLink, ChevronLeft, ChevronRight, MessageCircle, Utensils, Trash2, Edit, Navigation, Search, Plus, Menu, User, ArrowLeft, Save, Send, StarIcon, TrendingUp, Globe, RadioIcon, Pause, Play } from 'lucide-react';
 import { LoadScript } from '@react-google-maps/api';
 import { apiService, ApiVendor } from './services/api';
 import GoogleMapComponent from './components/GoogleMap';
-import QueueSystem from './components/QueueSystem';
 
 // TypeScript interfaces
 interface Review {
@@ -800,28 +799,60 @@ const MenuBuilder = ({ vendor, onUpdateVendor, onClose }: MenuBuilderProps) => {
     price: '',
     category: 'Main'
   });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleAddDish = () => {
+  // Fetch dishes from API when component mounts
+  useEffect(() => {
+    const fetchDishes = async () => {
+      if (!vendor?.id) return;
+      
+      setIsLoading(true);
+      try {
+        const fetchedDishes = await apiService.getDishes(vendor.id);
+        setDishes(fetchedDishes);
+        // Update the vendor object with fetched dishes
+        onUpdateVendor({ ...vendor, dishes: fetchedDishes });
+      } catch (error) {
+        console.error('Error fetching dishes:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDishes();
+  }, [vendor?.id]); // Only re-run if vendor ID changes
+
+  const handleAddDish = async () => {
     if (!newDish.name || !newDish.price) return;
     
-    const dish = {
-      ...newDish,
-      id: Date.now(),
-      price: parseFloat(newDish.price),
-      available: true
-    };
-    
-    const updatedDishes = [...dishes, dish];
-    setDishes(updatedDishes);
-    onUpdateVendor({ ...vendor, dishes: updatedDishes });
-    
-    setNewDish({ name: '', description: '', price: '', category: 'Main' });
+    try {
+      const savedDish = await apiService.addDish(vendor.id, {
+        name: newDish.name,
+        description: newDish.description,
+        price: parseFloat(newDish.price),
+        category: newDish.category,
+        available: true
+      });
+      
+      const updatedDishes = [...dishes, savedDish];
+      setDishes(updatedDishes);
+      onUpdateVendor({ ...vendor, dishes: updatedDishes });
+      
+      setNewDish({ name: '', description: '', price: '', category: 'Main' });
+    } catch (error) {
+      console.error('Error saving dish:', error);
+    }
   };
 
-  const handleDeleteDish = (dishId: number) => {
-    const updatedDishes = dishes.filter((dish: Dish) => dish.id !== dishId);
-    setDishes(updatedDishes);
-    onUpdateVendor({ ...vendor, dishes: updatedDishes });
+  const handleDeleteDish = async (dishId: number) => {
+    try {
+      await apiService.deleteDish(dishId);
+      const updatedDishes = dishes.filter((dish: Dish) => dish.id !== dishId);
+      setDishes(updatedDishes);
+      onUpdateVendor({ ...vendor, dishes: updatedDishes });
+    } catch (error) {
+      console.error('Error deleting dish:', error);
+    }
   };
 
   return (
@@ -1321,12 +1352,8 @@ const App = () => {
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [currentVendor, setCurrentVendor] = useState<Vendor | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [cartQuantities, setCartQuantities] = useState<{[dishId: number]: number}>({});
   const [isVendorMode, setIsVendorMode] = useState(true);
-  
-  // Queue system state
-  const [showQueueSystem, setShowQueueSystem] = useState(false);
-  
+
   // Notification system state
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1511,33 +1538,7 @@ const App = () => {
     setMapZoom(16);
   };
 
-  // Cart quantity management functions for dishes
-  const addToCart = (dishId: number) => {
-    setCartQuantities(prev => ({
-      ...prev,
-      [dishId]: (prev[dishId] || 0) + 1
-    }));
-  };
 
-  const removeFromCart = (dishId: number) => {
-    setCartQuantities(prev => {
-      const newQuantities = { ...prev };
-      if (newQuantities[dishId] && newQuantities[dishId] > 1) {
-        newQuantities[dishId]--;
-      } else {
-        delete newQuantities[dishId];
-      }
-      return newQuantities;
-    });
-  };
-
-  const clearFromCart = (dishId: number) => {
-    setCartQuantities(prev => {
-      const newQuantities = { ...prev };
-      delete newQuantities[dishId];
-      return newQuantities;
-    });
-  };
 
   const handleReviewsOnlyView = (vendor: Vendor) => {
     setSelectedVendor(vendor);
@@ -2143,20 +2144,7 @@ const App = () => {
         <div className="w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col max-h-96 lg:max-h-none overflow-y-auto">
           {selectedVendor ? (
             <div className="flex-1 flex flex-col">
-              {showQueueSystem ? (
-                // Queue System view
-                <QueueSystem
-                  vendorId={selectedVendor.id}
-                  vendorName={selectedVendor.name}
-                  cartItems={cartQuantities}
-                  dishes={selectedVendor.dishes || []}
-                  onClose={() => {
-                    setShowQueueSystem(false);
-                    setCartQuantities({});
-                  }}
-                  onNotification={addNotification}
-                />
-              ) : showMenuOnly ? (
+              {showMenuOnly ? (
                 // Menu-only view
                 <div className="flex-1 flex flex-col">
                   <div className="p-4 md:p-6 border-b border-gray-200 bg-orange-50">
@@ -2178,8 +2166,6 @@ const App = () => {
                         <button onClick={() => {
                           setSelectedVendor(null);
                           setShowMenuOnly(false);
-                          setShowQueueSystem(false);
-                          setCartQuantities({});
                           setMapZoom(13);
                         }} className="p-2 hover:bg-gray-100 rounded-lg">
                           <X className="w-5 h-5" />
@@ -2223,36 +2209,9 @@ const App = () => {
                               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                                 {dish.category}
                               </span>
-                              {cartQuantities[dish.id] ? (
-                                <div className="flex items-center gap-2 bg-orange-100 rounded-lg px-2 py-1">
-                                  <button
-                                    onClick={() => clearFromCart(dish.id)}
-                                    className="text-red-600 hover:text-red-700 transition-colors p-1"
-                                    title="Remove from cart"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                  <span className="text-orange-700 font-semibold min-w-[1.5rem] text-center">
-                                    {cartQuantities[dish.id]}
-                                  </span>
-                                  <button
-                                    onClick={() => addToCart(dish.id)}
-                                    className="text-orange-600 hover:text-orange-700 transition-colors p-1"
-                                    title="Add to cart"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => addToCart(dish.id)}
-                                  className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-700 transition-colors"
-                                  title="Add to cart"
-                                >
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Add to Order
-                                </button>
-                              )}
+                              <span className="text-lg font-bold text-orange-600">
+                                ${dish.price.toFixed(2)}
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -2264,42 +2223,7 @@ const App = () => {
                         <p className="text-sm">This truck hasn't added their menu yet.</p>
                       </div>
                     )}
-                    
-                    {/* Queue System Integration - Order Summary */}
-                    {Object.keys(cartQuantities).length > 0 && !isVendorMode && (
-                      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
-                        <div className="bg-orange-50 rounded-xl p-4 mb-4">
-                          <h4 className="font-semibold text-gray-900 mb-2">Your Order Summary</h4>
-                          <div className="space-y-2">
-                            {Object.entries(cartQuantities).map(([dishId, quantity]) => {
-                              const dish = selectedVendor.dishes?.find(d => d.id === parseInt(dishId));
-                              if (!dish) return null;
-                              return (
-                                <div key={dishId} className="flex justify-between text-sm">
-                                  <span>{quantity}x {dish.name}</span>
-                                  <span>${(dish.price * quantity).toFixed(2)}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="border-t pt-2 mt-2">
-                            <div className="flex justify-between font-bold">
-                              <span>Total: ${Object.entries(cartQuantities).reduce((total, [dishId, quantity]) => {
-                                const dish = selectedVendor.dishes?.find(d => d.id === parseInt(dishId));
-                                return total + (dish ? dish.price * quantity : 0);
-                              }, 0).toFixed(2)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <button
-                          onClick={() => setShowQueueSystem(true)}
-                          className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-4 px-4 rounded-xl font-bold text-lg shadow-lg hover:from-orange-700 hover:to-red-700 transition-all"
-                        >
-                          🎫 Continue to Queue
-                        </button>
-                      </div>
-                    )}
+
                   </div>
                 </div>
               ) : showReviewsOnly ? (
@@ -2324,8 +2248,6 @@ const App = () => {
                         <button onClick={() => {
                           setSelectedVendor(null);
                           setShowReviewsOnly(false);
-                          setShowQueueSystem(false);
-                          setCartQuantities({});
                           setMapZoom(13);
                         }} className="p-2 hover:bg-gray-100 rounded-lg">
                           <X className="w-5 h-5" />
@@ -2400,9 +2322,6 @@ const App = () => {
                       </div>
                       <button onClick={() => {
                         setSelectedVendor(null);
-                        setShowMenuOnly(false);
-                        setShowQueueSystem(false);
-                        setCartQuantities({});
                         setMapZoom(13);
                       }} className="p-2 hover:bg-gray-100 rounded-lg">
                         <X className="w-5 h-5" />
@@ -2504,36 +2423,9 @@ const App = () => {
                             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                               {dish.category}
                             </span>
-                            {cartQuantities[dish.id] ? (
-                              <div className="flex items-center gap-2 bg-orange-100 rounded-lg px-2 py-1">
-                                <button
-                                  onClick={() => clearFromCart(dish.id)}
-                                  className="text-red-600 hover:text-red-700 transition-colors p-1"
-                                  title="Remove from cart"
-                                >
-                                  <Trash2 className="w-3 md:w-4 h-3 md:h-4" />
-                                </button>
-                                <span className="text-orange-700 font-semibold min-w-[1.5rem] text-center text-xs md:text-sm">
-                                  {cartQuantities[dish.id]}
-                                </span>
-                                <button
-                                  onClick={() => addToCart(dish.id)}
-                                  className="text-orange-600 hover:text-orange-700 transition-colors p-1"
-                                  title="Add to cart"
-                                >
-                                  <Plus className="w-3 md:w-4 h-3 md:h-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => addToCart(dish.id)}
-                                className="bg-orange-600 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm hover:bg-orange-700 transition-colors"
-                                title="Add to cart"
-                              >
-                                <Plus className="w-3 md:w-4 h-3 md:h-4 mr-1" />
-                                Add to Order
-                              </button>
-                            )}
+                            <span className="text-base md:text-lg font-bold text-orange-600">
+                              ${dish.price.toFixed(2)}
+                            </span>
                           </div>
                         </div>
                       )) || (

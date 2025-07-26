@@ -284,6 +284,22 @@ app.delete('/api/vendors/:id', (req, res) => {
   });
 });
 
+// Get dishes for a vendor
+app.get('/api/vendors/:vendorId/dishes', (req, res) => {
+  const { vendorId } = req.params;
+  
+  const query = `SELECT * FROM dishes WHERE vendor_id = ? ORDER BY category, name`;
+  
+  db.all(query, [vendorId], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    res.json(rows);
+  });
+});
+
 // Add dish to vendor
 app.post('/api/vendors/:vendorId/dishes', (req, res) => {
   const { vendorId } = req.params;
