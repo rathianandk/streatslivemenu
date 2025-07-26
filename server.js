@@ -96,6 +96,30 @@ db.serialize(() => {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (vendor_id) REFERENCES vendors (id)
   )`);
+
+  // Queue system tables
+  db.run(`CREATE TABLE IF NOT EXISTS queues (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vendor_id INTEGER,
+    is_active BOOLEAN DEFAULT 1,
+    current_serving_number INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (vendor_id) REFERENCES vendors (id)
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS queue_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id INTEGER,
+    customer_name TEXT DEFAULT 'Customer',
+    queue_number INTEGER NOT NULL,
+    items TEXT NOT NULL,
+    total_amount REAL NOT NULL,
+    status TEXT DEFAULT 'waiting',
+    estimated_wait INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (queue_id) REFERENCES queues (id)
+  )`);
 });
 
 // API Routes
@@ -483,6 +507,222 @@ app.post('/api/seed', (req, res) => {
   });
 
   res.json({ message: 'Database seeded successfully' });
+});
+
+// Queue System API Endpoints
+
+// Get queue status for a vendor
+app.get('/api/queue/:vendorId', (req, res) => {
+  const vendorId = req.params.vendorId;
+  
+  // Get or create queue for vendor
+  db.get('SELECT * FROM queues WHERE vendor_id = ? AND is_active = 1', [vendorId], (err, queue) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    if (!queue) {
+      // Create new queue for vendor
+      db.run('INSERT INTO queues (vendor_id, is_active, current_serving_number) VALUES (?, 1, 0)', [vendorId], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        
+        res.json({
+          queueId: this.lastID,
+          vendorId: parseInt(vendorId),
+          currentServingNumber: 0,
+          totalInQueue: 0,
+          estimatedWait: 0
+        });
+      });
+    } else {
+      // Get queue entries count
+      db.get('SELECT COUNT(*) as count FROM queue_entries WHERE queue_id = ? AND status = "waiting"', [queue.id], (err, result) => {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        
+        res.json({
+          queueId: queue.id,
+          vendorId: queue.vendor_id,
+          currentServingNumber: queue.current_serving_number,
+          totalInQueue: result.count,
+          estimatedWait: result.count * 5 // 5 minutes per order estimate
+        });
+      });
+    }
+  });
+});
+
+// Join queue
+app.post('/api/queue/join', (req, res) => {
+  const { vendorId, items, totalAmount, customerName = 'Customer' } = req.body;
+  
+  if (!vendorId || !items || !totalAmount) {
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
+  
+  // Get or create queue for vendor
+  db.get('SELECT * FROM queues WHERE vendor_id = ? AND is_active = 1', [vendorId], (err, queue) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    const processJoinQueue = (queueId) => {
+      // Get next queue number
+      db.get('SELECT MAX(queue_number) as maxNumber FROM queue_entries WHERE queue_id = ?', [queueId], (err, result) => {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        
+        const nextQueueNumber = (result.maxNumber || 0) + 1;
+        
+        // Get current position in queue
+        db.get('SELECT COUNT(*) as position FROM queue_entries WHERE queue_id = ? AND status = "waiting"', [queueId], (err, positionResult) => {
+          if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          
+          const position = positionResult.position + 1;
+          const estimatedWait = position * 5; // 5 minutes per order
+          
+          // Add to queue
+          db.run(
+            'INSERT INTO queue_entries (queue_id, customer_name, queue_number, items, total_amount, status, estimated_wait) VALUES (?, ?, ?, ?, ?, "waiting", ?)',
+            [queueId, customerName, nextQueueNumber, JSON.stringify(items), totalAmount, estimatedWait],
+            function(err) {
+              if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+              }
+              
+              res.json({
+                success: true,
+                queueEntryId: this.lastID,
+                queueNumber: nextQueueNumber,
+                position: position,
+                estimatedWait: estimatedWait,
+                message: `You're #${position} in line at position ${nextQueueNumber}`
+              });
+            }
+          );
+        });
+      });
+    };
+    
+    if (!queue) {
+      // Create new queue for vendor
+      db.run('INSERT INTO queues (vendor_id, is_active, current_serving_number) VALUES (?, 1, 0)', [vendorId], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        processJoinQueue(this.lastID);
+      });
+    } else {
+      processJoinQueue(queue.id);
+    }
+  });
+});
+
+// Get queue status for a specific queue entry
+app.get('/api/queue/status/:queueNumber/:vendorId', (req, res) => {
+  const { queueNumber, vendorId } = req.params;
+  
+  db.get(`
+    SELECT qe.*, q.current_serving_number,
+           (SELECT COUNT(*) FROM queue_entries qe2 
+            WHERE qe2.queue_id = qe.queue_id 
+            AND qe2.status = 'waiting' 
+            AND qe2.queue_number < qe.queue_number) + 1 as current_position
+    FROM queue_entries qe
+    JOIN queues q ON qe.queue_id = q.id
+    WHERE qe.queue_number = ? AND q.vendor_id = ?
+  `, [queueNumber, vendorId], (err, entry) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    if (!entry) {
+      res.status(404).json({ error: 'Queue entry not found' });
+      return;
+    }
+    
+    res.json({
+      queueNumber: entry.queue_number,
+      position: entry.current_position,
+      estimatedWait: entry.current_position * 5,
+      status: entry.status,
+      items: JSON.parse(entry.items),
+      totalAmount: entry.total_amount
+    });
+  });
+});
+
+// Vendor: Get current queue for management
+app.get('/api/vendor/:vendorId/queue', (req, res) => {
+  const vendorId = req.params.vendorId;
+  
+  db.get('SELECT * FROM queues WHERE vendor_id = ? AND is_active = 1', [vendorId], (err, queue) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    if (!queue) {
+      res.json({ queue: null, entries: [] });
+      return;
+    }
+    
+    // Get queue entries
+    db.all(
+      'SELECT * FROM queue_entries WHERE queue_id = ? AND status IN ("waiting", "preparing") ORDER BY queue_number ASC',
+      [queue.id],
+      (err, entries) => {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        
+        const processedEntries = entries.map(entry => ({
+          ...entry,
+          items: JSON.parse(entry.items)
+        }));
+        
+        res.json({
+          queue: queue,
+          entries: processedEntries
+        });
+      }
+    );
+  });
+});
+
+// Vendor: Mark order as ready/completed
+app.post('/api/vendor/queue/complete/:queueEntryId', (req, res) => {
+  const queueEntryId = req.params.queueEntryId;
+  
+  db.run(
+    'UPDATE queue_entries SET status = "completed", updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    [queueEntryId],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      res.json({ success: true, message: 'Order marked as completed' });
+    }
+  );
 });
 
 // Serve React build files (both development and production)

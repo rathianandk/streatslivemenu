@@ -20,8 +20,37 @@ steps:
     - '--platform'
     - 'managed'
     - '--allow-unauthenticated'
+    - '--port'
+    - '8080'
     - '--set-env-vars'
-    - 'REACT_APP_GOOGLE_MAPS_API_KEY=AIzaSyDdiy1hXAg5BI4XWCleJxa_S2cssiWHxyQ'
+    - 'NODE_ENV=production,REACT_APP_GOOGLE_MAPS_API_KEY=AIzaSyDdiy1hXAg5BI4XWCleJxa_S2cssiWHxyQ'
+    - '--memory'
+    - '1Gi'
+    - '--cpu'
+    - '1'
+    - '--max-instances'
+    - '10'
+    - '--min-instances'
+    - '1'
+
+# Substitutions for custom domain deployment
+substitutions:
+  _CUSTOM_DOMAIN: 'streatslive.com'  # Change this to your desired domain
+  _SERVICE_NAME: 'streats-live'
+  _REGION: 'us-central1'
 
 images:
   - 'gcr.io/$PROJECT_ID/streats-live:$BUILD_ID'
+
+# Optional: Add domain mapping step (uncomment after domain is verified)
+# - name: 'gcr.io/cloud-builders/gcloud'
+#   args:
+#   - 'run'
+#   - 'domain-mappings'
+#   - 'create'
+#   - '--service'
+#   - '${_SERVICE_NAME}'
+#   - '--domain'
+#   - '${_CUSTOM_DOMAIN}'
+#   - '--region'
+#   - '${_REGION}'
